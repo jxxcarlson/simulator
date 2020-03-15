@@ -1,4 +1,4 @@
-module State exposing (State, configure, initialState, initialStateWithHouseholdsAndSeed)
+module State exposing (BusinessLog, State, configure, initialState, initialStateWithHouseholdsAndSeed)
 
 import EngineData exposing (Config)
 import Entity exposing (Entity)
@@ -16,9 +16,14 @@ type alias State =
     , totalHouseholdPurchases : Int
     , totalHouseholdConsumption : Int
     , log : List String
+    , businessLog : List BusinessLog
     , data : List ( Float, Float )
     , tick : Int
     }
+
+
+type alias BusinessLog =
+    { name : String, lostSales : Int }
 
 
 initialState : State
@@ -33,6 +38,7 @@ initialState =
     , totalHouseholdPurchases = 0
     , totalHouseholdConsumption = 0
     , log = []
+    , businessLog = []
     , data = []
     , tick = 0
     }
@@ -46,6 +52,7 @@ configure config seed =
         |> configureWithBusinesses config
         |> configureWithSuppliers config
         |> configureWithEducators config
+        |> setupBusinessLog
         |> (\state -> { state | config = config })
 
 
@@ -57,6 +64,16 @@ configureWithHouseholds config intSeed numberOfHouseholds state =
 configureWithBusinesses : Config -> State -> State
 configureWithBusinesses config state =
     { state | businesses = EngineData.businesses config }
+
+
+setupBusinessLog : State -> State
+setupBusinessLog state =
+    let
+        logItem : Entity -> BusinessLog
+        logItem e =
+            { name = Entity.getName e, lostSales = 0 }
+    in
+    { state | businessLog = List.map logItem state.businesses }
 
 
 configureWithSuppliers : Config -> State -> State

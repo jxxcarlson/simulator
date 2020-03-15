@@ -146,6 +146,23 @@ selectRandomBusiness state =
         Utility.randomElement newSeed state.businesses
 
 
+purchaseAmount : State -> Random.Seed -> ( Int, Random.Seed )
+purchaseAmount state seed =
+    let
+        ( p, newSeed ) =
+            Random.step probability seed
+
+        randomPurchaseAmount : Float -> Int
+        randomPurchaseAmount q =
+            let
+                range =
+                    toFloat (state.config.maximumPurchaseOfA - state.config.minimumPurchaseOfA)
+            in
+            state.config.minimumPurchaseOfA + round (q * range)
+    in
+    ( randomPurchaseAmount p, newSeed )
+
+
 businessBuyGoods : State -> State
 businessBuyGoods state =
     let
@@ -169,21 +186,8 @@ businessBuyGoods state =
 
         Just business ->
             let
-                ( probabilityForChoosingPurchaseAmount, seed3 ) =
-                    Random.step probability seed2
-
-                --( p3, seed4 ) =
-                --    Random.step probability seed3
-                randomPurchaseAmount : Float -> Int
-                randomPurchaseAmount q =
-                    let
-                        range =
-                            toFloat (state.config.maximumPurchaseOfA - state.config.minimumPurchaseOfA)
-                    in
-                    state.config.minimumPurchaseOfA + round (q * range)
-
-                a =
-                    randomPurchaseAmount probabilityForChoosingPurchaseAmount
+                ( a, seed3 ) =
+                    purchaseAmount state seed2
 
                 aCC =
                     config.maximumCCRatio * toFloat a |> round
@@ -197,9 +201,6 @@ businessBuyGoods state =
                 config =
                     state.config
 
-                oldFiatBalance =
-                    Report.fiatBalanceOfEntity (Money.bankTime 0) business |> String.fromFloat
-
                 newBusiness =
                     -- subtract total cost of items purchased from supplier
                     Entity.addToInventory item business
@@ -211,6 +212,9 @@ businessBuyGoods state =
                         (\b -> Entity.getName b == Entity.getName newBusiness)
                         (\b -> newBusiness)
                         state.businesses
+
+                oldFiatBalance =
+                    Report.fiatBalanceOfEntity (Money.bankTime 0) business |> String.fromFloat
 
                 newFiatBalance =
                     Report.fiatBalanceOfEntity (Money.bankTime 0) newBusiness |> String.fromFloat

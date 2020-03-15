@@ -69,7 +69,7 @@ type Msg
     | AcceptConfiguration String
     | IncrementModel
     | DecrementModel
-    | GotAtomsphericRandomNumber (Result Http.Error String)
+    | GotAtmosphericRandomNumber (Result Http.Error String)
 
 
 type alias Flags =
@@ -225,7 +225,7 @@ update msg model =
                 |> changeConfig index
                 |> withNoCmd
 
-        GotAtomsphericRandomNumber result ->
+        GotAtmosphericRandomNumber result ->
             case result of
                 Ok str ->
                     case String.toInt (String.trim str) of
@@ -555,7 +555,7 @@ getRandomNumber : Cmd Msg
 getRandomNumber =
     Http.get
         { url = randomNumberUrl 9
-        , expect = Http.expectString GotAtomsphericRandomNumber
+        , expect = Http.expectString GotAtmosphericRandomNumber
         }
 
 

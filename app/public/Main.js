@@ -6135,6 +6135,7 @@ var $author$project$State$configureWithSuppliers = F2(
 			});
 	});
 var $author$project$State$initialState = {
+	businessLog: _List_Nil,
 	businesses: _List_Nil,
 	config: $author$project$EngineData$config1,
 	data: _List_Nil,
@@ -6148,6 +6149,23 @@ var $author$project$State$initialState = {
 	totalHouseholdConsumption: 0,
 	totalHouseholdPurchases: 0
 };
+var $author$project$Entity$getName = function (_v0) {
+	var common = _v0.a;
+	return common.name;
+};
+var $author$project$State$setupBusinessLog = function (state) {
+	var logItem = function (e) {
+		return {
+			lostSales: 0,
+			name: $author$project$Entity$getName(e)
+		};
+	};
+	return _Utils_update(
+		state,
+		{
+			businessLog: A2($elm$core$List$map, logItem, state.businesses)
+		});
+};
 var $author$project$State$configure = F2(
 	function (config, seed) {
 		return function (state) {
@@ -6155,21 +6173,22 @@ var $author$project$State$configure = F2(
 				state,
 				{config: config});
 		}(
-			A2(
-				$author$project$State$configureWithEducators,
-				config,
+			$author$project$State$setupBusinessLog(
 				A2(
-					$author$project$State$configureWithSuppliers,
+					$author$project$State$configureWithEducators,
 					config,
 					A2(
-						$author$project$State$configureWithBusinesses,
+						$author$project$State$configureWithSuppliers,
 						config,
-						A4(
-							$author$project$State$configureWithHouseholds,
+						A2(
+							$author$project$State$configureWithBusinesses,
 							config,
-							seed,
-							config.numberOfHouseholds,
-							A3($author$project$State$configureWithGivenSeed, config, seed, $author$project$State$initialState))))));
+							A4(
+								$author$project$State$configureWithHouseholds,
+								config,
+								seed,
+								config.numberOfHouseholds,
+								A3($author$project$State$configureWithGivenSeed, config, seed, $author$project$State$initialState)))))));
 	});
 var $elm$core$List$drop = F2(
 	function (n, list) {
@@ -6197,8 +6216,8 @@ var $elm_community$list_extra$List$Extra$getAt = F2(
 		return (idx < 0) ? $elm$core$Maybe$Nothing : $elm$core$List$head(
 			A2($elm$core$List$drop, idx, xs));
 	});
-var $author$project$Main$GotAtomsphericRandomNumber = function (a) {
-	return {$: 'GotAtomsphericRandomNumber', a: a};
+var $author$project$Main$GotAtmosphericRandomNumber = function (a) {
+	return {$: 'GotAtmosphericRandomNumber', a: a};
 };
 var $elm$http$Http$BadStatus_ = F2(
 	function (a, b) {
@@ -6992,7 +7011,7 @@ var $author$project$Main$randomNumberUrl = function (maxDigits) {
 };
 var $author$project$Main$getRandomNumber = $elm$http$Http$get(
 	{
-		expect: $elm$http$Http$expectString($author$project$Main$GotAtomsphericRandomNumber),
+		expect: $elm$http$Http$expectString($author$project$Main$GotAtmosphericRandomNumber),
 		url: $author$project$Main$randomNumberUrl(9)
 	});
 var $elm$core$Maybe$withDefault = F2(
@@ -7581,10 +7600,6 @@ var $author$project$Report$fiatBalanceOfEntity = F2(
 				$author$project$Entity$getFiatAccount(entity)));
 	});
 var $elm$core$String$fromFloat = _String_fromNumber;
-var $author$project$Entity$getName = function (_v0) {
-	var common = _v0.a;
-	return common.name;
-};
 var $elm$core$String$cons = _String_cons;
 var $elm$core$String$fromChar = function (_char) {
 	return A2($elm$core$String$cons, _char, '');
@@ -7653,6 +7668,19 @@ var $elm$random$Random$float = F2(
 			});
 	});
 var $author$project$Action$probability = A2($elm$random$Random$float, 0, 1);
+var $author$project$Action$purchaseAmount = F2(
+	function (state, seed) {
+		var randomPurchaseAmount = function (q) {
+			var range = state.config.maximumPurchaseOfA - state.config.minimumPurchaseOfA;
+			return state.config.minimumPurchaseOfA + $elm$core$Basics$round(q * range);
+		};
+		var _v0 = A2($elm$random$Random$step, $author$project$Action$probability, seed);
+		var p = _v0.a;
+		var newSeed = _v0.b;
+		return _Utils_Tuple2(
+			randomPurchaseAmount(p),
+			newSeed);
+	});
 var $elm$core$Basics$clamp = F3(
 	function (low, high, number) {
 		return (_Utils_cmp(number, low) < 0) ? low : ((_Utils_cmp(number, high) > 0) ? high : number);
@@ -7731,20 +7759,15 @@ var $author$project$Action$businessBuyGoods = function (state) {
 		return state;
 	} else {
 		var business = business_.a;
-		var randomPurchaseAmount = function (q) {
-			var range = state.config.maximumPurchaseOfA - state.config.minimumPurchaseOfA;
-			return state.config.minimumPurchaseOfA + $elm$core$Basics$round(q * range);
-		};
 		var oldFiatBalance = $elm$core$String$fromFloat(
 			A2(
 				$author$project$Report$fiatBalanceOfEntity,
 				$author$project$Money$bankTime(0),
 				business));
 		var config = state.config;
-		var _v2 = A2($elm$random$Random$step, $author$project$Action$probability, seed2);
-		var probabilityForChoosingPurchaseAmount = _v2.a;
+		var _v2 = A2($author$project$Action$purchaseAmount, state, seed2);
+		var a = _v2.a;
 		var seed3 = _v2.b;
-		var a = randomPurchaseAmount(probabilityForChoosingPurchaseAmount);
 		var aCC = $elm$core$Basics$round(config.maximumCCRatio * a);
 		var aFiat = a - aCC;
 		var item = A2($author$project$ModelTypes$setQuantity, a, state.config.itemA);
