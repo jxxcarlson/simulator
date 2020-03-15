@@ -23,7 +23,7 @@ import List.Extra
 import Money
 import Report
 import SimpleGraph exposing (Option(..))
-import State exposing (State)
+import State exposing (BusinessLog, State)
 import String.Interpolate exposing (interpolate)
 import Style
 import Time
@@ -313,7 +313,25 @@ dashboard model =
         , el [] (text <| "Business inventories = " ++ businessInventory model)
         , el [] (text <| "Fiat balances = " ++ fiatBalances model)
         , el [] (text <| "CC balances = " ++ ccBalances model)
+        , el [] (text <| "------------------------------")
+        , column [ spacing 8 ] (displayLostSales model)
         ]
+
+
+displayLostSales : Model -> List (Element msg)
+displayLostSales model =
+    let
+        data =
+            model.state.businessLog
+
+        display : BusinessLog -> Element msg
+        display bl =
+            row [ spacing 8 ]
+                [ el [ width (px 80) ] (text bl.name)
+                , el [ width (px 80) ] (text <| String.fromInt bl.lostSales)
+                ]
+    in
+    List.map display data
 
 
 displayLog : Model -> Element msg

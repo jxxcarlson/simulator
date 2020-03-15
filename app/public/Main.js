@@ -5568,7 +5568,7 @@ var $author$project$EngineData$config1 = {
 	randomPurchaseFraction: 0.1,
 	renderWidth: 573,
 	subtitle: 'Simplistic random re-order model',
-	tickLoopInterval: 0.3 * 1000,
+	tickLoopInterval: 0.3 * 100,
 	title: 'CASE 1. Fiat currency only'
 };
 var $author$project$EngineData$CCEarningsON = {$: 'CCEarningsON'};
@@ -7977,6 +7977,25 @@ var $author$project$Action$consumeA = F2(
 			return state;
 		}
 	});
+var $author$project$Action$householdPurchaseAmount = F2(
+	function (seed, state) {
+		var range = state.config.householdMaximumPurchaseAmount - state.config.householdMinimumPurchaseAmount;
+		var _v0 = A2($elm$random$Random$step, $author$project$Action$probability, seed);
+		var p = _v0.a;
+		var newSeed = _v0.b;
+		return _Utils_Tuple2(
+			state.config.householdMinimumPurchaseAmount + $elm$core$Basics$round(p * range),
+			newSeed);
+	});
+var $author$project$Action$amountToPurchaseFromShop = F3(
+	function (state, shop__, household__) {
+		var shopInventoryAmt = A2($author$project$Entity$inventoryAmount, 'AA', shop__);
+		var householdInventoryAmt = A2($author$project$Entity$inventoryAmount, 'AA', household__);
+		var _v0 = A2($author$project$Action$householdPurchaseAmount, state.seed, state);
+		var purchaseAmt = _v0.a;
+		var newSeed_ = _v0.b;
+		return (_Utils_cmp(householdInventoryAmt, state.config.householdLowInventoryThreshold) > -1) ? _Utils_Tuple2(0, newSeed_) : ((_Utils_cmp(purchaseAmt, shopInventoryAmt) > 0) ? _Utils_Tuple2(shopInventoryAmt, newSeed_) : _Utils_Tuple2(purchaseAmt, newSeed_));
+	});
 var $author$project$Internal$Cents$map = F2(
 	function (f, _v0) {
 		var k = _v0.a;
@@ -8069,93 +8088,125 @@ var $author$project$Internal$Money$mul = F2(
 				}));
 	});
 var $author$project$Money$mul = $author$project$Internal$Money$mul;
-var $elm$core$Basics$sqrt = _Basics_sqrt;
-var $author$project$Entity$positionDistance = F2(
-	function (p, q) {
-		var deltaY = p.column - q.column;
-		var deltaX = p.row - q.row;
-		return $elm$core$Basics$sqrt((deltaX * deltaX) + (deltaY * deltaY));
+var $author$project$Action$buyItem = F5(
+	function (t, state, amountToPurchase_, household_, shop_) {
+		var itemPrice = A2($author$project$Money$mul, amountToPurchase_, state.config.itemAMoney);
+		var item = A2($author$project$ModelTypes$setQuantity, amountToPurchase_, state.config.itemA);
+		var subInventoryOfA = function (inventory) {
+			return A2($author$project$Inventory$sub, item, inventory).b;
+		};
+		var subInventoryOfEntity = function (e_) {
+			return A2($author$project$Entity$mapInventory, subInventoryOfA, e_);
+		};
+		var debitAccount = function (account) {
+			return A3(
+				$author$project$Account$debit,
+				$author$project$Money$bankTime(t),
+				itemPrice,
+				account);
+		};
+		var creditAccount = function (account) {
+			return A3(
+				$author$project$Account$credit,
+				$author$project$Money$bankTime(t),
+				itemPrice,
+				account);
+		};
+		var newShop_ = A3(
+			$author$project$Entity$mapAccount,
+			creditAccount,
+			$author$project$Entity$getFiatAccount(shop_),
+			subInventoryOfEntity(shop_));
+		var addInventoryOfA = function (inventory) {
+			return A2($author$project$Inventory$add, item, inventory);
+		};
+		var addInventoryOfEntity = function (e_) {
+			return A2($author$project$Entity$mapInventory, addInventoryOfA, e_);
+		};
+		var newHousehold_ = A3(
+			$author$project$Entity$mapAccount,
+			debitAccount,
+			$author$project$Entity$getFiatAccount(household_),
+			addInventoryOfEntity(household_));
+		return _Utils_Tuple2(newHousehold_, newShop_);
 	});
-var $author$project$Entity$distance = F2(
-	function (_v0, _v1) {
-		var common1 = _v0.a;
-		var common2 = _v1.a;
-		return A2($author$project$Entity$positionDistance, common1.position, common2.position);
+var $author$project$Action$loop = F2(
+	function (s, nextState_) {
+		loop:
+		while (true) {
+			var _v0 = nextState_(s);
+			if (_v0.$ === 'Loop') {
+				var s_ = _v0.a;
+				var $temp$s = s_,
+					$temp$nextState_ = nextState_;
+				s = $temp$s;
+				nextState_ = $temp$nextState_;
+				continue loop;
+			} else {
+				var b = _v0.a;
+				return b;
+			}
+		}
 	});
-var $author$project$Entity$getType = function (_v0) {
-	var common = _v0.a;
-	return common.entityType;
+var $author$project$Action$Done = function (a) {
+	return {$: 'Done', a: a};
 };
-var $author$project$ActionHelper$getShops = function (state) {
-	return A2(
-		$elm$core$List$filter,
-		function (e) {
+var $author$project$Action$Loop = function (a) {
+	return {$: 'Loop', a: a};
+};
+var $author$project$Action$updateBusinessLog = F2(
+	function (business, log) {
+		var updater = function (bLog) {
 			return _Utils_eq(
-				$author$project$Entity$getType(e),
-				$author$project$Entity$TShop);
-		},
-		state.businesses);
-};
-var $elm$core$Basics$min = F2(
-	function (x, y) {
-		return (_Utils_cmp(x, y) < 0) ? x : y;
+				$author$project$Entity$getName(business),
+				bLog.name) ? _Utils_update(
+				bLog,
+				{lostSales: bLog.lostSales + 1}) : bLog;
+		};
+		return A2($elm$core$List$map, updater, log);
 	});
-var $elm$core$List$minimum = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(
-			A3($elm$core$List$foldl, $elm$core$Basics$min, x, xs));
+var $author$project$Action$nextState = function (st) {
+	var _v0 = $elm$core$List$head(st.shops);
+	if (_v0.$ === 'Nothing') {
+		return $author$project$Action$Done(
+			_Utils_Tuple2($elm$core$Maybe$Nothing, st.log));
 	} else {
-		return $elm$core$Maybe$Nothing;
+		var shop = _v0.a;
+		var _v1 = !A2($author$project$Entity$inventoryAmount, 'AA', shop);
+		if (_v1) {
+			return $author$project$Action$Loop(
+				{
+					log: A2($author$project$Action$updateBusinessLog, shop, st.log),
+					shops: A2($elm$core$List$drop, 1, st.shops)
+				});
+		} else {
+			return $author$project$Action$Done(
+				_Utils_Tuple2(
+					$elm$core$Maybe$Just(shop),
+					st.log));
+		}
 	}
 };
-var $elm$core$Tuple$pair = F2(
-	function (a, b) {
-		return _Utils_Tuple2(a, b);
-	});
-var $author$project$ActionHelper$nearestShop = F2(
-	function (e, state) {
-		var shops = $author$project$ActionHelper$getShops(state);
-		var distances = A2(
-			$elm$core$List$map,
-			$author$project$Entity$distance(e),
-			shops);
-		var m = A2(
-			$elm$core$Maybe$withDefault,
-			0,
-			$elm$core$List$minimum(distances));
-		var shopswithDistances = A3($elm$core$List$map2, $elm$core$Tuple$pair, shops, distances);
-		var closestShops = A2(
-			$elm$core$List$map,
-			$elm$core$Tuple$first,
-			A2(
-				$elm$core$List$filter,
-				function (_v0) {
-					var s = _v0.a;
-					var d = _v0.b;
-					return $elm$core$Basics$abs(d - m) < 0.001;
-				},
-				shopswithDistances));
-		return $elm$core$List$head(closestShops);
+var $author$project$Action$findShopWithPositiveInventory = F2(
+	function (state, household) {
+		return A2(
+			$author$project$Action$loop,
+			{log: state.businessLog, shops: state.businesses},
+			$author$project$Action$nextState);
 	});
 var $elm$core$Basics$neq = _Utils_notEqual;
 var $author$project$Action$householdBuyGoods_ = F3(
-	function (t, e, state) {
-		var _v0 = A2($author$project$ActionHelper$nearestShop, e, state);
-		if (_v0.$ === 'Nothing') {
-			return state;
+	function (t, household_, state) {
+		var _v0 = A2($author$project$Action$findShopWithPositiveInventory, state, household_);
+		if (_v0.a.$ === 'Nothing') {
+			var _v1 = _v0.a;
+			var newBusinessLog = _v0.b;
+			return _Utils_update(
+				state,
+				{businessLog: newBusinessLog});
 		} else {
-			var shop_ = _v0.a;
-			var range = state.config.householdMaximumPurchaseAmount - state.config.householdMinimumPurchaseAmount;
-			var randomPurchaseAmount = function (q) {
-				return state.config.householdMinimumPurchaseAmount + $elm$core$Basics$round(q * range);
-			};
-			var qH = A2($author$project$Entity$inventoryAmount, 'AA', e);
-			var _v1 = A2($elm$random$Random$step, $author$project$Action$probability, state.seed);
-			var p = _v1.a;
-			var newSeed = _v1.b;
-			var a = randomPurchaseAmount(p);
+			var shop_ = _v0.a.a;
+			var newBusinessLog = _v0.b;
 			var _v2 = function () {
 				var _v3 = !A2($author$project$Entity$inventoryAmount, 'AA', shop_);
 				if (!_v3) {
@@ -8178,34 +8229,30 @@ var $author$project$Action$householdBuyGoods_ = F3(
 			}();
 			var shop = _v2.a;
 			var message = _v2.b;
-			var qS = A2($author$project$Entity$inventoryAmount, 'AA', shop);
-			var qP = (_Utils_cmp(qH, state.config.householdLowInventoryThreshold) > -1) ? 0 : ((_Utils_cmp(a, qS) > 0) ? qS : a);
-			var item = A2($author$project$ModelTypes$setQuantity, qP, state.config.itemA);
-			var addInventoryOfA = function (inventory) {
-				return A2($author$project$Inventory$add, item, inventory);
-			};
-			var addInventoryOfEntity = function (e_) {
-				return A2($author$project$Entity$mapInventory, addInventoryOfA, e_);
-			};
-			var subInventoryOfA = function (inventory) {
-				return A2($author$project$Inventory$sub, item, inventory).b;
-			};
-			var subInventoryOfEntity = function (e_) {
-				return A2($author$project$Entity$mapInventory, subInventoryOfA, e_);
-			};
-			var itemPrice = A2($author$project$Money$mul, qP, state.config.itemAMoney);
-			var creditAccount = function (account) {
-				return A3(
-					$author$project$Account$credit,
-					$author$project$Money$bankTime(t),
-					itemPrice,
-					account);
-			};
-			var newBusiness = A3(
-				$author$project$Entity$mapAccount,
-				creditAccount,
-				$author$project$Entity$getFiatAccount(shop),
-				subInventoryOfEntity(shop));
+			var _v4 = A3($author$project$Action$amountToPurchaseFromShop, state, shop, household_);
+			var amountToPurchase = _v4.a;
+			var newSeed = _v4.b;
+			var _v5 = A5($author$project$Action$buyItem, t, state, amountToPurchase, household_, shop_);
+			var newHousehold = _v5.a;
+			var newBusiness = _v5.b;
+			var newHouseholds = A3(
+				$elm_community$list_extra$List$Extra$updateIf,
+				function (e1) {
+					return _Utils_eq(
+						$author$project$Entity$getName(e1),
+						$author$project$Entity$getName(household_));
+				},
+				function (_v8) {
+					return newHousehold;
+				},
+				state.households);
+			var logString = function () {
+				if (message === 'InventoryFailure') {
+					return 'H' + ($author$project$Entity$getName(newHousehold) + (' buy ' + ($elm$core$String$fromInt(amountToPurchase) + (' from ((' + ($author$project$Entity$getName(newBusiness) + '))')))));
+				} else {
+					return 'H' + ($author$project$Entity$getName(newHousehold) + (' buy ' + ($elm$core$String$fromInt(amountToPurchase) + (' from ' + $author$project$Entity$getName(newBusiness)))));
+				}
+			}();
 			var newBusinesses = A3(
 				$elm_community$list_extra$List$Extra$updateIf,
 				function (e1) {
@@ -8217,44 +8264,15 @@ var $author$project$Action$householdBuyGoods_ = F3(
 					return newBusiness;
 				},
 				state.businesses);
-			var debitAccount = function (account) {
-				return A3(
-					$author$project$Account$debit,
-					$author$project$Money$bankTime(t),
-					itemPrice,
-					account);
-			};
-			var newHousehold = A3(
-				$author$project$Entity$mapAccount,
-				debitAccount,
-				$author$project$Entity$getFiatAccount(e),
-				addInventoryOfEntity(e));
-			var logString = function () {
-				if (message === 'InventoryFailure') {
-					return 'H' + ($author$project$Entity$getName(newHousehold) + (' buy ' + ($elm$core$String$fromInt(a) + (' from ((' + ($author$project$Entity$getName(newBusiness) + '))')))));
-				} else {
-					return 'H' + ($author$project$Entity$getName(newHousehold) + (' buy ' + ($elm$core$String$fromInt(a) + (' from ' + $author$project$Entity$getName(newBusiness)))));
-				}
-			}();
-			var newHouseholds = A3(
-				$elm_community$list_extra$List$Extra$updateIf,
-				function (e1) {
-					return _Utils_eq(
-						$author$project$Entity$getName(e1),
-						$author$project$Entity$getName(e));
-				},
-				function (_v4) {
-					return newHousehold;
-				},
-				state.households);
 			return _Utils_update(
 				state,
 				{
+					businessLog: newBusinessLog,
 					businesses: newBusinesses,
 					households: newHouseholds,
 					log: A2($author$project$Action$logItem, state, logString),
 					seed: newSeed,
-					totalHouseholdPurchases: state.totalHouseholdPurchases + qP
+					totalHouseholdPurchases: state.totalHouseholdPurchases + amountToPurchase
 				});
 		}
 	});
@@ -11247,6 +11265,10 @@ var $mdgriffith$elm_ui$Internal$Model$hasSmallCaps = function (typeface) {
 		return false;
 	}
 };
+var $elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
 var $mdgriffith$elm_ui$Internal$Model$renderProps = F3(
 	function (force, _v0, existing) {
 		var key = _v0.a;
@@ -11932,6 +11954,16 @@ var $elm$core$List$maximum = function (list) {
 		var xs = list.b;
 		return $elm$core$Maybe$Just(
 			A3($elm$core$List$foldl, $elm$core$Basics$max, x, xs));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $elm$core$List$minimum = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(
+			A3($elm$core$List$foldl, $elm$core$Basics$min, x, xs));
 	} else {
 		return $elm$core$Maybe$Nothing;
 	}
@@ -14602,6 +14634,64 @@ var $mdgriffith$elm_ui$Element$el = F2(
 				_List_fromArray(
 					[child])));
 	});
+var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
+var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
+var $mdgriffith$elm_ui$Element$row = F2(
+	function (attrs, children) {
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asRow,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentCenterY)),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+						attrs))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
+	});
+var $mdgriffith$elm_ui$Internal$Model$Text = function (a) {
+	return {$: 'Text', a: a};
+};
+var $mdgriffith$elm_ui$Element$text = function (content) {
+	return $mdgriffith$elm_ui$Internal$Model$Text(content);
+};
+var $author$project$Main$displayLostSales = function (model) {
+	var display = function (bl) {
+		return A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_fromArray(
+				[
+					$mdgriffith$elm_ui$Element$spacing(8)
+				]),
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width(
+							$mdgriffith$elm_ui$Element$px(80))
+						]),
+					$mdgriffith$elm_ui$Element$text(bl.name)),
+					A2(
+					$mdgriffith$elm_ui$Element$el,
+					_List_fromArray(
+						[
+							$mdgriffith$elm_ui$Element$width(
+							$mdgriffith$elm_ui$Element$px(80))
+						]),
+					$mdgriffith$elm_ui$Element$text(
+						$elm$core$String$fromInt(bl.lostSales)))
+				]));
+	};
+	var data = model.state.businessLog;
+	return A2($elm$core$List$map, display, data);
+};
 var $author$project$Report$fiatBalanceOfEntityList = F2(
 	function (bt, entityList) {
 		var f = function (e) {
@@ -14753,12 +14843,6 @@ var $author$project$Report$minMaxHouseholdInventoryOf = F2(
 					$elm$core$List$maximum(inventories)
 				]));
 	});
-var $mdgriffith$elm_ui$Internal$Model$Text = function (a) {
-	return {$: 'Text', a: a};
-};
-var $mdgriffith$elm_ui$Element$text = function (content) {
-	return $mdgriffith$elm_ui$Internal$Model$Text(content);
-};
 var $author$project$Main$dashboard = function (model) {
 	return A2(
 		$mdgriffith$elm_ui$Element$column,
@@ -14852,7 +14936,18 @@ var $author$project$Main$dashboard = function (model) {
 				$mdgriffith$elm_ui$Element$el,
 				_List_Nil,
 				$mdgriffith$elm_ui$Element$text(
-					'CC balances = ' + $author$project$Main$ccBalances(model)))
+					'CC balances = ' + $author$project$Main$ccBalances(model))),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
+				$mdgriffith$elm_ui$Element$text('------------------------------')),
+				A2(
+				$mdgriffith$elm_ui$Element$column,
+				_List_fromArray(
+					[
+						$mdgriffith$elm_ui$Element$spacing(8)
+					]),
+				$author$project$Main$displayLostSales(model))
 			]));
 };
 var $author$project$Main$booleanOr = function (list) {
@@ -15229,6 +15324,10 @@ var $author$project$CellGrid$Canvas$asHtml = F3(
 					list)
 				]));
 	});
+var $author$project$Entity$getType = function (_v0) {
+	var common = _v0.a;
+	return common.entityType;
+};
 var $author$project$Engine$entityRadius = function (e) {
 	var _v0 = $author$project$Entity$getType(e);
 	switch (_v0.$) {
@@ -15274,26 +15373,6 @@ var $author$project$Engine$render = F2(
 				_Utils_ap(
 					s.businesses,
 					_Utils_ap(s.suppliers, s.educators))));
-	});
-var $mdgriffith$elm_ui$Internal$Model$AsRow = {$: 'AsRow'};
-var $mdgriffith$elm_ui$Internal$Model$asRow = $mdgriffith$elm_ui$Internal$Model$AsRow;
-var $mdgriffith$elm_ui$Element$row = F2(
-	function (attrs, children) {
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asRow,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentLeft + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.contentCenterY)),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-						attrs))),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(children));
 	});
 var $author$project$Main$displayState = function (model) {
 	return A2(
@@ -16821,6 +16900,10 @@ var $jxxcarlson$elm_graph$SimpleGraph$byTickmarks = function (ga) {
 				},
 				A2($elm$core$List$range, 0, n - 1))));
 };
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
 var $jxxcarlson$elm_graph$SimpleGraph$xCoordinates = F2(
 	function (n, dx) {
 		return A2(

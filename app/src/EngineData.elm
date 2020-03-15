@@ -108,7 +108,7 @@ config1 : Config
 config1 =
     { title = "CASE 1. Fiat currency only"
     , subtitle = "Simplistic random re-order model"
-    , tickLoopInterval = 0.3 * 1000
+    , tickLoopInterval = 0.3 * 100
     , cycleLength = 360
     , renderWidth = 573
     , gridWidth = 30

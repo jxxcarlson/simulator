@@ -19,7 +19,7 @@ import ModelTypes exposing (Inventory)
 import Money
 import Random
 import Report
-import State exposing (State)
+import State exposing (BusinessLog, State)
 import Utility
 import Value
 
@@ -336,17 +336,144 @@ householdBuyGoods t state =
             householdBuyGoods_ t e { state | seed = newSeed }
 
 
-findShopWithPositiveInventory : State -> Entity -> Maybe Entity
+type Step state a
+    = Done a
+    | Loop state
+
+
+updateBusinessLog : Entity -> List BusinessLog -> List BusinessLog
+updateBusinessLog business log =
+    let
+        updater bLog =
+            if Entity.getName business == bLog.name then
+                { bLog | lostSales = bLog.lostSales + 1 }
+
+            else
+                bLog
+    in
+    List.map updater log
+
+
+nextState : SState -> Step SState ( Maybe Entity, List BusinessLog )
+nextState st =
+    case List.head st.shops of
+        Nothing ->
+            Done ( Nothing, st.log )
+
+        Just shop ->
+            case Entity.inventoryAmount "AA" shop == 0 of
+                True ->
+                    Loop { shops = List.drop 1 st.shops, log = updateBusinessLog shop st.log }
+
+                False ->
+                    Done ( Just shop, st.log )
+
+
+type alias SState =
+    { shops : List Entity, log : List BusinessLog }
+
+
+loop : state -> (state -> Step state a) -> a
+loop s nextState_ =
+    case nextState_ s of
+        Loop s_ ->
+            loop s_ nextState_
+
+        Done b ->
+            b
+
+
+findShopWithPositiveInventory : State -> Entity -> ( Maybe Entity, List BusinessLog )
 findShopWithPositiveInventory state household =
+    loop { shops = state.businesses, log = state.businessLog } nextState
+
+
+householdPurchaseAmount : Random.Seed -> State -> ( Int, Random.Seed )
+householdPurchaseAmount seed state =
+    let
+        ( p, newSeed ) =
+            Random.step probability seed
+
+        range =
+            toFloat (state.config.householdMaximumPurchaseAmount - state.config.householdMinimumPurchaseAmount)
+    in
+    ( state.config.householdMinimumPurchaseAmount + round (p * range), newSeed )
+
+
+amountToPurchaseFromShop state shop__ household__ =
+    let
+        shopInventoryAmt =
+            Entity.inventoryAmount "AA" shop__
+
+        householdInventoryAmt =
+            Entity.inventoryAmount "AA" household__
+
+        ( purchaseAmt, newSeed_ ) =
+            householdPurchaseAmount state.seed state
+    in
+    if householdInventoryAmt >= state.config.householdLowInventoryThreshold then
+        -- Don't purchase itemA if already have enough on hand
+        ( 0, newSeed_ )
+
+    else if purchaseAmt > shopInventoryAmt then
+        -- Can't purchase more than is available in shop
+        ( shopInventoryAmt, newSeed_ )
+
+    else
+        ( purchaseAmt, newSeed_ )
+
+
+buyItem t state amountToPurchase_ household_ shop_ =
+    let
+        item =
+            ModelTypes.setQuantity amountToPurchase_ state.config.itemA
+
+        itemPrice =
+            Money.mul amountToPurchase_ state.config.itemAMoney
+
+        addInventoryOfA : Inventory -> Inventory
+        addInventoryOfA inventory =
+            Inventory.add item inventory
+
+        addInventoryOfEntity : Entity -> Entity
+        addInventoryOfEntity e_ =
+            Entity.mapInventory addInventoryOfA e_
+
+        subInventoryOfA : Inventory -> Inventory
+        subInventoryOfA inventory =
+            Inventory.sub item inventory
+                |> Tuple.second
+
+        subInventoryOfEntity : Entity -> Entity
+        subInventoryOfEntity e_ =
+            Entity.mapInventory subInventoryOfA e_
+
+        debitAccount : Account.Account -> Account.Account
+        debitAccount =
+            \account -> Account.debit (Money.bankTime t) itemPrice account
+
+        creditAccount : Account.Account -> Account.Account
+        creditAccount =
+            \account -> Account.credit (Money.bankTime t) itemPrice account
+
+        newHousehold_ =
+            addInventoryOfEntity household_
+                |> Entity.mapAccount debitAccount (Entity.getFiatAccount household_)
+
+        newShop_ =
+            subInventoryOfEntity shop_
+                |> Entity.mapAccount creditAccount (Entity.getFiatAccount shop_)
+    in
+    ( newHousehold_, newShop_ )
 
 
 householdBuyGoods_ : Int -> Entity -> State -> State
-householdBuyGoods_ t e state =
-    case AH.nearestShop e state of
-        Nothing ->
-            state
+householdBuyGoods_ t household_ state =
+    case findShopWithPositiveInventory state household_ of
+        ( Nothing, newBusinessLog ) ->
+            { state | businessLog = newBusinessLog }
 
-        Just shop_ ->
+        ( Just shop_, newBusinessLog ) ->
             let
                 ( shop, message ) =
                     case Entity.inventoryAmount "AA" shop_ == 0 of
@@ -359,79 +486,15 @@ householdBuyGoods_ t e state =
                                 |> Maybe.withDefault shop_
                                 |> (\s -> ( s, "InventoryFailure" ))
 
-                ( p, newSeed ) =
-                    Random.step probability state.seed
+                ( amountToPurchase, newSeed ) =
+                    amountToPurchaseFromShop state shop household_
 
-                range =
-                    toFloat (state.config.householdMaximumPurchaseAmount - state.config.householdMinimumPurchaseAmount)
-
-                randomPurchaseAmount : Float -> Int
-                randomPurchaseAmount q =
-                    state.config.householdMinimumPurchaseAmount + round (q * range)
-
-                a =
-                    randomPurchaseAmount p
-
-                qS =
-                    Entity.inventoryAmount "AA" shop
-
-                qH =
-                    Entity.inventoryAmount "AA" e
-
-                qP =
-                    if qH >= state.config.householdLowInventoryThreshold then
-                        -- Don't purchase itemA if already have enough on hand
-                        0
-
-                    else if a > qS then
-                        -- Can't purchase more than is available in shop
-                        qS
-
-                    else
-                        a
-
-                item =
-                    ModelTypes.setQuantity qP state.config.itemA
-
-                itemPrice =
-                    Money.mul qP state.config.itemAMoney
-
-                addInventoryOfA : Inventory -> Inventory
-                addInventoryOfA inventory =
-                    Inventory.add item inventory
-
-                addInventoryOfEntity : Entity -> Entity
-                addInventoryOfEntity e_ =
-                    Entity.mapInventory addInventoryOfA e_
-
-                subInventoryOfA : Inventory -> Inventory
-                subInventoryOfA inventory =
-                    Inventory.sub item inventory
-                        |> Tuple.second
-
-                subInventoryOfEntity : Entity -> Entity
-                subInventoryOfEntity e_ =
-                    Entity.mapInventory subInventoryOfA e_
-
-                debitAccount : Account.Account -> Account.Account
-                debitAccount =
-                    \account -> Account.debit (Money.bankTime t) itemPrice account
-
-                creditAccount : Account.Account -> Account.Account
-                creditAccount =
-                    \account -> Account.credit (Money.bankTime t) itemPrice account
-
-                newHousehold =
-                    addInventoryOfEntity e
-                        |> Entity.mapAccount debitAccount (Entity.getFiatAccount e)
-
-                newBusiness =
-                    subInventoryOfEntity shop
-                        |> Entity.mapAccount creditAccount (Entity.getFiatAccount shop)
+                ( newHousehold, newBusiness ) =
+                    buyItem t state amountToPurchase household_ shop_
 
                 newHouseholds =
                     List.Extra.updateIf
-                        (\e1 -> Entity.getName e1 == Entity.getName e)
+                        (\e1 -> Entity.getName e1 == Entity.getName household_)
                         (\_ -> newHousehold)
                         state.households
 
@@ -444,17 +507,18 @@ householdBuyGoods_ t e state =
                 logString =
                     case message of
                         "InventoryFailure" ->
-                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt a ++ " from ((" ++ Entity.getName newBusiness ++ "))"
+                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from ((" ++ Entity.getName newBusiness ++ "))"
 
                         _ ->
-                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt a ++ " from " ++ Entity.getName newBusiness
+                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from " ++ Entity.getName newBusiness
             in
             { state
                 | households = newHouseholds
                 , businesses = newBusinesses
                 , seed = newSeed
-                , totalHouseholdPurchases = state.totalHouseholdPurchases + qP
+                , totalHouseholdPurchases = state.totalHouseholdPurchases + amountToPurchase
                 , log = logItem state logString
+                , businessLog = newBusinessLog
             }
 
 
