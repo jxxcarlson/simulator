@@ -1,0 +1,8 @@
+.idea/
+elm-stuff/
+make.sh
+tests/VVerifyExamples/
+tests/VerifyExamples/
+app/src/index.html
+app/tests/VerifyExamples/
+

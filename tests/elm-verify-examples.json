@@ -1,0 +1,4 @@
+{
+  "root": "../src",
+  "tests": ["Money","Internal.Money", "Internal.Value", "Internal.Account", "Internal.Utility"]
+}
