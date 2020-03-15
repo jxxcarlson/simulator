@@ -6,6 +6,7 @@ module ActionHelper exposing
     , minimumHouseholdInventory
     , nearestShop
     , selectHouseholdWithLeastInventory
+    , shopsByDistance
     )
 
 import Account
@@ -61,6 +62,26 @@ nearestShop e state =
             List.filter (\( s, d ) -> abs (d - m) < 0.001) shopswithDistances |> List.map Tuple.first
     in
     List.head closestShops
+
+
+shopsByDistance : Entity -> State -> List Entity
+shopsByDistance e state =
+    let
+        shops =
+            getShops state
+
+        distances =
+            List.map (Entity.distance e) shops
+
+        shopsWithDistances =
+            List.map2 Tuple.pair shops distances
+    in
+    List.sortBy (\( s, d ) -> d) shopsWithDistances
+        |> List.map Tuple.first
+
+
+
+-- |> List.map Tuple.first
 
 
 {-|

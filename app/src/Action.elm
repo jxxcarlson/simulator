@@ -336,6 +336,10 @@ householdBuyGoods t state =
             householdBuyGoods_ t e { state | seed = newSeed }
 
 
+findShopWithPositiveInventory : State -> Entity -> Maybe Entity
+findShopWithPositiveInventory state household =
+
+
 householdBuyGoods_ : Int -> Entity -> State -> State
 householdBuyGoods_ t e state =
     case AH.nearestShop e state of
