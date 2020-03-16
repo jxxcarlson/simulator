@@ -79,6 +79,8 @@ type alias Config =
     , probabilityOfPurchasing : Float
     , monthlyPurchaseCeilingInUnits : Int
     , monthlyPurchaseCeilingHeadRoom : Int
+    , businessRent : Float
+    , rentDueDate : Int
 
     -- Households
     , numberOfHouseholds : Int
@@ -108,7 +110,7 @@ config1 : Config
 config1 =
     { title = "CASE 1. Fiat currency only"
     , subtitle = "Simplistic random re-order model"
-    , tickLoopInterval = 0.3 * 100
+    , tickLoopInterval = 0.3 * 10
     , cycleLength = 360
     , renderWidth = 573
     , gridWidth = 30
@@ -136,8 +138,10 @@ config1 =
     , educationalContentCycle = 30
     , maximumCCRatio = 0.0
     , probabilityOfPurchasing = 0.6
-    , monthlyPurchaseCeilingInUnits = 80
+    , monthlyPurchaseCeilingInUnits = 70
     , monthlyPurchaseCeilingHeadRoom = 10
+    , businessRent = 80
+    , rentDueDate = 10
 
     -- Educators
     -- Households
@@ -160,6 +164,7 @@ config2 =
         | title = "CASE 2: with CC Earnings"
         , subtitle = "Somewhat more interesting"
         , ccEarnings = CCEarningsON
+        , maximumCCRatio = 0.1
     }
 
 

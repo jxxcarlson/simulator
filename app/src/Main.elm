@@ -314,8 +314,21 @@ dashboard model =
         , el [] (text <| "Fiat balances = " ++ fiatBalances model)
         , el [] (text <| "CC balances = " ++ ccBalances model)
         , el [] (text <| "------------------------------")
-        , column [ spacing 8 ] (displayLostSales model)
+        , column [ spacing 4 ] (displayLostSales model)
+        , totalLostSales model
         ]
+
+
+totalLostSales : Model -> Element msg
+totalLostSales model =
+    let
+        data =
+            model.state.businessLog
+
+        total =
+            List.sum (List.map .lostSales data)
+    in
+    el [] (text <| String.fromInt total)
 
 
 displayLostSales : Model -> List (Element msg)
