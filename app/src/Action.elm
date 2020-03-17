@@ -136,6 +136,7 @@ probability =
 
 
 -- MAIN: BUSINESS BUY GOODS
+-- Entity.inventoryAmount "AA" e
 
 
 businessBuysGoods : State -> State
@@ -145,39 +146,61 @@ businessBuysGoods state =
             state
 
         ( Just business, seed ) ->
+            if Entity.inventoryAmount "AA" business < state.config.maxInventory then
+                buy_ state seed business
+
+            else
+                { state | seed = seed }
+
+
+buy_ state seed business =
+    let
+        ( purchaseAmt, seed2 ) =
+            purchaseAmount state seed
+
+        fiatBalance =
+            Entity.getFiatAccountFloatValue state.tick business
+
+        purchaseCost =
+            toFloat purchaseAmt * state.config.itemCost
+
+        maximumPurchaseAmount =
+            min fiatBalance purchaseCost
+
+        adjustedPurchaseAmount =
+            floor (maximumPurchaseAmount / state.config.itemCost)
+
+        aCC : Int
+        aCC =
+            state.config.maximumCCRatio * toFloat adjustedPurchaseAmount |> round
+
+        aFiat : Int
+        aFiat =
+            adjustedPurchaseAmount - aCC
+
+        item =
+            ModelTypes.setQuantity purchaseAmt state.config.itemA
+
+        newBusiness =
             let
-                ( purchaseAmt, seed2 ) =
-                    purchaseAmount state seed
-
-                aCC =
-                    state.config.maximumCCRatio * toFloat purchaseAmt |> round
-
-                aFiat =
-                    purchaseAmt - aCC
-
-                item =
-                    ModelTypes.setQuantity purchaseAmt state.config.itemA
-
-                newBusiness =
-                    let
-                        config =
-                            state.config
-                    in
-                    -- subtract total cost of items purchased from supplier
-                    Entity.addToInventory item business
-                        |> AH.creditEntity config state.tick config.fiatCurrency Infinite (toFloat aFiat * -config.itemCost)
-                        |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration (toFloat aCC * -config.itemCost)
-
-                newBusinesses =
-                    List.Extra.updateIf
-                        (\b -> Entity.getName b == Entity.getName newBusiness)
-                        (\b -> newBusiness)
-                        state.businesses
-
-                logString =
-                    getLogString purchaseAmt business newBusiness
+                config =
+                    state.config
             in
-            { state | seed = seed2, businesses = newBusinesses, log = logItem state logString }
+            -- subtract total cost of items purchased from supplier
+            Entity.addToInventory item business
+                |> AH.creditEntity config state.tick config.fiatCurrency Infinite (toFloat aFiat * -config.itemCost)
+                |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration (toFloat aCC * -config.itemCost)
+
+        newBusinesses =
+            List.Extra.updateIf
+                (\b -> Entity.getName b == Entity.getName newBusiness)
+                (\b -> newBusiness)
+                state.businesses
+
+        logString =
+            getLogString purchaseAmt business newBusiness
+    in
+    { state | seed = seed2, businesses = newBusinesses, log = logItem state logString }
 
 
 
@@ -289,6 +312,7 @@ businessPaysRent t state =
 householdBuysGoods : Int -> State -> State
 householdBuysGoods t state =
     let
+        -- TODO: This let block needs some thought
         sortByAccountValue : Entity -> Int
         sortByAccountValue e =
             Entity.getFiatAccount e
@@ -296,17 +320,17 @@ householdBuysGoods t state =
                 |> Value.intValue
                 |> (\v -> -v)
 
+        n =
+            List.length state.households
+
         orderedHouseholds =
             List.sortBy (\e -> sortByAccountValue e) state.households
-                |> List.take 5
+                |> List.take (n // 2)
 
-        n =
-            List.length orderedHouseholds - 1
-
-        ( i, newSeed ) =
-            Random.step (Random.int 0 n) state.seed
+        ( needyHousehold, newSeed ) =
+            Utility.randomElement state.seed orderedHouseholds
     in
-    case List.head orderedHouseholds of
+    case needyHousehold of
         Nothing ->
             { state | seed = newSeed }
 
@@ -376,7 +400,11 @@ householdBuysGoods_ t household_ state =
 
 findShopWithPositiveInventory : State -> Entity -> ( Maybe Entity, List BusinessLog )
 findShopWithPositiveInventory state household =
-    loop { shops = state.businesses, log = state.businessLog } nextState
+    let
+        businesses =
+            List.sortBy (\e -> Entity.distance e household) state.businesses
+    in
+    loop { shops = businesses, log = state.businessLog } nextState
 
 
 nextState : SState -> Step SState ( Maybe Entity, List BusinessLog )
@@ -428,6 +456,15 @@ loop s nextState_ =
 
 
 -- (2) Other helpers
+
+
+selectRandomHousehold : State -> ( Maybe Entity, Random.Seed )
+selectRandomHousehold state =
+    let
+        ( _, newSeed ) =
+            Random.step probability state.seed
+    in
+    Utility.randomElement state.seed state.businesses
 
 
 householdPurchaseAmount : Random.Seed -> State -> ( Int, Random.Seed )

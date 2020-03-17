@@ -100,9 +100,6 @@ changeConfig k model =
         configuration =
             List.Extra.getAt k EngineData.configurationList |> Maybe.withDefault EngineData.config1
 
-        _ =
-            Debug.log "changeConfig, title" configuration.title
-
         seed =
             case model.randomAtmosphericInt of
                 Nothing ->
@@ -113,13 +110,10 @@ changeConfig k model =
 
         state =
             State.configure configuration seed
-
-        _ =
-            Debug.log "changeConfig, state, title" state.config.title
     in
     { model
         | configurationString = String.fromInt k
-        , configurationIndex = Debug.log "K" k
+        , configurationIndex = k
         , configuration = configuration
         , state = State.configure configuration seed
     }
@@ -365,7 +359,7 @@ displayLog model =
                             String.words model.filterString |> List.map String.trim
 
                         filter =
-                            \item -> conjunctiveFilter (\target item_ -> String.contains (Debug.log "T" item_) target) badStrings item
+                            \item -> conjunctiveFilter (\target item_ -> String.contains item_ target) badStrings item
                     in
                     List.filter filter model.state.log
 

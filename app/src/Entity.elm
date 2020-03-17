@@ -13,6 +13,7 @@ module Entity exposing
     , getCCAccount
     , getColor
     , getFiatAccount
+    , getFiatAccountFloatValue
     , getName
     , getPosition
     , getType
@@ -54,6 +55,7 @@ import Internal.Types exposing (CurrencyType(..))
 import Inventory
 import ModelTypes exposing (Inventory, Item)
 import Money exposing (Money)
+import Value
 
 
 type Entity
@@ -182,6 +184,13 @@ distance (Entity common1 _) (Entity common2 _) =
 getFiatAccount : Entity -> Account
 getFiatAccount (Entity common _) =
     common.fiatAccount
+
+
+getFiatAccountFloatValue : Int -> Entity -> Float
+getFiatAccountFloatValue t (Entity common _) =
+    common.fiatAccount
+        |> Account.value (Money.bankTime t)
+        |> Value.toFloat_
 
 
 setFiatAccount : Account -> Entity -> Entity

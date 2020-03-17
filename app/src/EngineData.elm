@@ -73,6 +73,7 @@ type alias Config =
     , minimumBusinessInventoryOfA : Int
     , minimumPurchaseOfA : Int
     , maximumPurchaseOfA : Int
+    , maxInventory : Int
     , educationalContentCycle : Int
     , educationPaymentPerCycle : Float
     , maximumCCRatio : Float
@@ -132,6 +133,7 @@ config1 =
     , itemA = Item { name = "AA", price = Money.createValue fiatCurrency 2.0, quantity = 1 }
     , itemAMoney = Money.createInfinite fiatCurrency 0 2.0
     , randomPurchaseFraction = 0.1
+    , maxInventory = 20
     , minimumBusinessInventoryOfA = 5
     , minimumPurchaseOfA = 2
     , maximumPurchaseOfA = 15
@@ -164,7 +166,7 @@ config2 =
         | title = "CASE 2: with CC Earnings"
         , subtitle = "Somewhat more interesting"
         , ccEarnings = CCEarningsON
-        , maximumCCRatio = 0.1
+        , maximumCCRatio = 0.15
     }
 
 

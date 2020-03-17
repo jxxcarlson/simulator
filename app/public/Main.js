@@ -5554,6 +5554,7 @@ var $author$project$EngineData$config1 = {
 	itemAMoney: A3($author$project$Money$createInfinite, $author$project$EngineData$fiatCurrency, 0, 2.0),
 	itemCost: 1.0,
 	itemPrice: A2($author$project$Money$createValue, $author$project$EngineData$fiatCurrency, 2),
+	maxInventory: 20,
 	maximumCCRatio: 0.0,
 	maximumPurchaseOfA: 15,
 	minimumBusinessInventoryOfA: 5,
@@ -5576,7 +5577,7 @@ var $author$project$EngineData$config1 = {
 var $author$project$EngineData$CCEarningsON = {$: 'CCEarningsON'};
 var $author$project$EngineData$config2 = _Utils_update(
 	$author$project$EngineData$config1,
-	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.1, subtitle: 'Somewhat more interesting', title: 'CASE 2: with CC Earnings'});
+	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.15, subtitle: 'Somewhat more interesting', title: 'CASE 2: with CC Earnings'});
 var $author$project$EngineData$configurationList = _List_fromArray(
 	[$author$project$EngineData$config1, $author$project$EngineData$config2]);
 var $author$project$Entity$BusinessCharacteristics = function (a) {
@@ -7323,15 +7324,14 @@ var $author$project$Main$subscriptions = function (model) {
 };
 var $author$project$Main$End = {$: 'End'};
 var $author$project$Main$Running = {$: 'Running'};
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$Main$changeConfig = F2(
 	function (k, model) {
 		var seed = function () {
-			var _v2 = model.randomAtmosphericInt;
-			if (_v2.$ === 'Nothing') {
+			var _v0 = model.randomAtmosphericInt;
+			if (_v0.$ === 'Nothing') {
 				return 400;
 			} else {
-				var s = _v2.a;
+				var s = _v0.a;
 				return s;
 			}
 		}();
@@ -7340,13 +7340,11 @@ var $author$project$Main$changeConfig = F2(
 			$author$project$EngineData$config1,
 			A2($elm_community$list_extra$List$Extra$getAt, k, $author$project$EngineData$configurationList));
 		var state = A2($author$project$State$configure, configuration, seed);
-		var _v0 = A2($elm$core$Debug$log, 'changeConfig, title', configuration.title);
-		var _v1 = A2($elm$core$Debug$log, 'changeConfig, state, title', state.config.title);
 		return _Utils_update(
 			model,
 			{
 				configuration: configuration,
-				configurationIndex: A2($elm$core$Debug$log, 'K', k),
+				configurationIndex: k,
 				configurationString: $elm$core$String$fromInt(k),
 				state: A2($author$project$State$configure, configuration, seed)
 			});
@@ -7584,6 +7582,15 @@ var $author$project$Internal$Account$value = F2(
 				A2($author$project$Internal$Account$ensureValid, bankTime_, account)));
 	});
 var $author$project$Account$value = $author$project$Internal$Account$value;
+var $author$project$Entity$getFiatAccountFloatValue = F2(
+	function (t, _v0) {
+		var common = _v0.a;
+		return $author$project$Value$toFloat_(
+			A2(
+				$author$project$Account$value,
+				$author$project$Money$bankTime(t),
+				common.fiatAccount));
+	});
 var $author$project$Report$fiatBalanceOfEntity = F2(
 	function (bt, entity) {
 		return $author$project$Value$toFloat_(
@@ -7644,6 +7651,10 @@ var $author$project$Action$logItem = F2(
 				$elm$core$String$fromInt(state.tick)) + (': ' + item),
 			state.log);
 	});
+var $elm$core$Basics$min = F2(
+	function (x, y) {
+		return (_Utils_cmp(x, y) < 0) ? x : y;
+	});
 var $elm$core$Basics$abs = function (n) {
 	return (n < 0) ? (-n) : n;
 };
@@ -7677,6 +7688,92 @@ var $author$project$Action$purchaseAmount = F2(
 		return _Utils_Tuple2(
 			randomPurchaseAmount(p),
 			newSeed);
+	});
+var $elm_community$list_extra$List$Extra$updateIf = F3(
+	function (predicate, update, list) {
+		return A2(
+			$elm$core$List$map,
+			function (item) {
+				return predicate(item) ? update(item) : item;
+			},
+			list);
+	});
+var $author$project$Action$buy_ = F3(
+	function (state, seed, business) {
+		var fiatBalance = A2($author$project$Entity$getFiatAccountFloatValue, state.tick, business);
+		var _v0 = A2($author$project$Action$purchaseAmount, state, seed);
+		var purchaseAmt = _v0.a;
+		var seed2 = _v0.b;
+		var item = A2($author$project$ModelTypes$setQuantity, purchaseAmt, state.config.itemA);
+		var purchaseCost = purchaseAmt * state.config.itemCost;
+		var maximumPurchaseAmount = A2($elm$core$Basics$min, fiatBalance, purchaseCost);
+		var adjustedPurchaseAmount = $elm$core$Basics$floor(maximumPurchaseAmount / state.config.itemCost);
+		var aCC = $elm$core$Basics$round(state.config.maximumCCRatio * adjustedPurchaseAmount);
+		var aFiat = adjustedPurchaseAmount - aCC;
+		var newBusiness = function () {
+			var config = state.config;
+			return A6(
+				$author$project$ActionHelper$creditEntity,
+				config,
+				state.tick,
+				config.complementaryCurrency,
+				config.complementaryCurrencyExpiration,
+				aCC * (-config.itemCost),
+				A6(
+					$author$project$ActionHelper$creditEntity,
+					config,
+					state.tick,
+					config.fiatCurrency,
+					$author$project$Internal$Types$Infinite,
+					aFiat * (-config.itemCost),
+					A2($author$project$Entity$addToInventory, item, business)));
+		}();
+		var logString = A3($author$project$Action$getLogString, purchaseAmt, business, newBusiness);
+		var newBusinesses = A3(
+			$elm_community$list_extra$List$Extra$updateIf,
+			function (b) {
+				return _Utils_eq(
+					$author$project$Entity$getName(b),
+					$author$project$Entity$getName(newBusiness));
+			},
+			function (b) {
+				return newBusiness;
+			},
+			state.businesses);
+		return _Utils_update(
+			state,
+			{
+				businesses: newBusinesses,
+				log: A2($author$project$Action$logItem, state, logString),
+				seed: seed2
+			});
+	});
+var $author$project$Entity$inventory = function (_v0) {
+	var common = _v0.a;
+	return common.inventory;
+};
+var $author$project$ModelTypes$itemName = function (_v0) {
+	var i = _v0.a;
+	return i.name;
+};
+var $author$project$ModelTypes$itemQuantity = function (_v0) {
+	var i = _v0.a;
+	return i.quantity;
+};
+var $author$project$Entity$inventoryAmount = F2(
+	function (itemName_, e) {
+		return $elm$core$List$sum(
+			A2(
+				$elm$core$List$map,
+				$author$project$ModelTypes$itemQuantity,
+				A2(
+					$elm$core$List$filter,
+					function (i) {
+						return _Utils_eq(
+							$author$project$ModelTypes$itemName(i),
+							itemName_);
+					},
+					$author$project$Entity$inventory(e))));
 	});
 var $elm$core$Maybe$andThen = F2(
 	function (callback, maybeValue) {
@@ -7764,15 +7861,6 @@ var $author$project$Action$randomBusiness = function (state) {
 		return _Utils_Tuple2($elm$core$Maybe$Nothing, newSeed);
 	}
 };
-var $elm_community$list_extra$List$Extra$updateIf = F3(
-	function (predicate, update, list) {
-		return A2(
-			$elm$core$List$map,
-			function (item) {
-				return predicate(item) ? update(item) : item;
-			},
-			list);
-	});
 var $author$project$Action$businessBuysGoods = function (state) {
 	var _v0 = $author$project$Action$randomBusiness(state);
 	if (_v0.a.$ === 'Nothing') {
@@ -7781,49 +7869,11 @@ var $author$project$Action$businessBuysGoods = function (state) {
 	} else {
 		var business = _v0.a.a;
 		var seed = _v0.b;
-		var _v2 = A2($author$project$Action$purchaseAmount, state, seed);
-		var purchaseAmt = _v2.a;
-		var seed2 = _v2.b;
-		var aCC = $elm$core$Basics$round(state.config.maximumCCRatio * purchaseAmt);
-		var aFiat = purchaseAmt - aCC;
-		var item = A2($author$project$ModelTypes$setQuantity, purchaseAmt, state.config.itemA);
-		var newBusiness = function () {
-			var config = state.config;
-			return A6(
-				$author$project$ActionHelper$creditEntity,
-				config,
-				state.tick,
-				config.complementaryCurrency,
-				config.complementaryCurrencyExpiration,
-				aCC * (-config.itemCost),
-				A6(
-					$author$project$ActionHelper$creditEntity,
-					config,
-					state.tick,
-					config.fiatCurrency,
-					$author$project$Internal$Types$Infinite,
-					aFiat * (-config.itemCost),
-					A2($author$project$Entity$addToInventory, item, business)));
-		}();
-		var newBusinesses = A3(
-			$elm_community$list_extra$List$Extra$updateIf,
-			function (b) {
-				return _Utils_eq(
-					$author$project$Entity$getName(b),
-					$author$project$Entity$getName(newBusiness));
-			},
-			function (b) {
-				return newBusiness;
-			},
-			state.businesses);
-		var logString = A3($author$project$Action$getLogString, purchaseAmt, business, newBusiness);
-		return _Utils_update(
+		return (_Utils_cmp(
+			A2($author$project$Entity$inventoryAmount, 'AA', business),
+			state.config.maxInventory) < 0) ? A3($author$project$Action$buy_, state, seed, business) : _Utils_update(
 			state,
-			{
-				businesses: newBusinesses,
-				log: A2($author$project$Action$logItem, state, logString),
-				seed: seed2
-			});
+			{seed: seed});
 	}
 };
 var $author$project$Action$businessPaysRent = F2(
@@ -7841,33 +7891,6 @@ var $author$project$Action$businessPaysRent = F2(
 		} else {
 			return state;
 		}
-	});
-var $author$project$Entity$inventory = function (_v0) {
-	var common = _v0.a;
-	return common.inventory;
-};
-var $author$project$ModelTypes$itemName = function (_v0) {
-	var i = _v0.a;
-	return i.name;
-};
-var $author$project$ModelTypes$itemQuantity = function (_v0) {
-	var i = _v0.a;
-	return i.quantity;
-};
-var $author$project$Entity$inventoryAmount = F2(
-	function (itemName_, e) {
-		return $elm$core$List$sum(
-			A2(
-				$elm$core$List$map,
-				$author$project$ModelTypes$itemQuantity,
-				A2(
-					$elm$core$List$filter,
-					function (i) {
-						return _Utils_eq(
-							$author$project$ModelTypes$itemName(i),
-							itemName_);
-					},
-					$author$project$Entity$inventory(e))));
 	});
 var $elm$core$List$any = F2(
 	function (isOkay, list) {
@@ -8160,6 +8183,19 @@ var $author$project$Action$buyItem = F5(
 			addInventoryOfEntity(household_));
 		return _Utils_Tuple2(newHousehold_, newShop_);
 	});
+var $elm$core$Basics$sqrt = _Basics_sqrt;
+var $author$project$Entity$positionDistance = F2(
+	function (p, q) {
+		var deltaY = p.column - q.column;
+		var deltaX = p.row - q.row;
+		return $elm$core$Basics$sqrt((deltaX * deltaX) + (deltaY * deltaY));
+	});
+var $author$project$Entity$distance = F2(
+	function (_v0, _v1) {
+		var common1 = _v0.a;
+		var common2 = _v1.a;
+		return A2($author$project$Entity$positionDistance, common1.position, common2.position);
+	});
 var $author$project$Action$loop = F2(
 	function (s, nextState_) {
 		loop:
@@ -8217,11 +8253,18 @@ var $author$project$Action$nextState = function (st) {
 		}
 	}
 };
+var $elm$core$List$sortBy = _List_sortBy;
 var $author$project$Action$findShopWithPositiveInventory = F2(
 	function (state, household) {
+		var businesses = A2(
+			$elm$core$List$sortBy,
+			function (e) {
+				return A2($author$project$Entity$distance, e, household);
+			},
+			state.businesses);
 		return A2(
 			$author$project$Action$loop,
-			{log: state.businessLog, shops: state.businesses},
+			{log: state.businessLog, shops: businesses},
 			$author$project$Action$nextState);
 	});
 var $elm$core$Basics$neq = _Utils_notEqual;
@@ -8306,7 +8349,6 @@ var $author$project$Action$householdBuysGoods_ = F3(
 				});
 		}
 	});
-var $elm$core$List$sortBy = _List_sortBy;
 var $elm$core$List$takeReverse = F3(
 	function (n, list, kept) {
 		takeReverse:
@@ -8445,29 +8487,25 @@ var $author$project$Action$householdBuysGoods = F2(
 						$author$project$Money$bankTime(t),
 						$author$project$Entity$getFiatAccount(e))));
 		};
+		var n = $elm$core$List$length(state.households);
 		var orderedHouseholds = A2(
 			$elm$core$List$take,
-			5,
+			(n / 2) | 0,
 			A2(
 				$elm$core$List$sortBy,
 				function (e) {
 					return sortByAccountValue(e);
 				},
 				state.households));
-		var n = $elm$core$List$length(orderedHouseholds) - 1;
-		var _v0 = A2(
-			$elm$random$Random$step,
-			A2($elm$random$Random$int, 0, n),
-			state.seed);
-		var i = _v0.a;
+		var _v0 = A2($author$project$Utility$randomElement, state.seed, orderedHouseholds);
+		var needyHousehold = _v0.a;
 		var newSeed = _v0.b;
-		var _v1 = $elm$core$List$head(orderedHouseholds);
-		if (_v1.$ === 'Nothing') {
+		if (needyHousehold.$ === 'Nothing') {
 			return _Utils_update(
 				state,
 				{seed: newSeed});
 		} else {
-			var e = _v1.a;
+			var e = needyHousehold.a;
 			return A3(
 				$author$project$Action$householdBuysGoods_,
 				t,
@@ -11298,10 +11336,6 @@ var $mdgriffith$elm_ui$Internal$Model$hasSmallCaps = function (typeface) {
 		return false;
 	}
 };
-var $elm$core$Basics$min = F2(
-	function (x, y) {
-		return (_Utils_cmp(x, y) < 0) ? x : y;
-	});
 var $mdgriffith$elm_ui$Internal$Model$renderProps = F3(
 	function (force, _v0, existing) {
 		var key = _v0.a;
@@ -15053,10 +15087,7 @@ var $author$project$Main$displayLog = function (model) {
 					$author$project$Main$conjunctiveFilter,
 					F2(
 						function (target, item_) {
-							return A2(
-								$elm$core$String$contains,
-								A2($elm$core$Debug$log, 'T', item_),
-								target);
+							return A2($elm$core$String$contains, item_, target);
 						}),
 					badStrings,
 					item);
