@@ -24,6 +24,7 @@ import Money
 import Report
 import SimpleGraph exposing (Option(..))
 import State exposing (BusinessLog, State)
+import Statistics
 import String.Interpolate exposing (interpolate)
 import Style
 import Time
@@ -50,6 +51,7 @@ type alias Model =
     , runState : RunState
     , filterString : String
     , randomAtmosphericInt : Maybe Int
+    , data : List Int
     }
 
 
@@ -89,6 +91,7 @@ init flags =
       , runState = Paused
       , filterString = ""
       , randomAtmosphericInt = Nothing
+      , data = []
       }
     , getRandomNumber
     )
@@ -142,11 +145,20 @@ update msg model =
 
                             else
                                 ( model.counter + 1, Running )
+
+                        updateData : RunState -> State -> List Int -> List Int
+                        updateData runState_ state data_ =
+                            if runState_ == Running then
+                                data_
+
+                            else
+                                State.lostSales state.businessLog :: data_
                     in
                     ( { model
                         | counter = counter
                         , state = Engine.nextState model.configuration counter model.state
                         , runState = runState
+                        , data = updateData runState model.state model.data
                       }
                     , Cmd.none
                     )
@@ -310,6 +322,19 @@ dashboard model =
         , el [] (text <| "------------------------------")
         , column [ spacing 4 ] (displayLostSales model)
         , totalLostSales model
+        , displayStatistics model
+        ]
+
+
+displayStatistics model =
+    let
+        stats =
+            Statistics.stats (List.map toFloat model.data)
+    in
+    row [ spacing 8 ]
+        [ el [] (text <| String.fromInt stats.n)
+        , el [] (text <| String.fromFloat stats.mean)
+        , el [] (text <| String.fromFloat stats.stdev)
         ]
 
 

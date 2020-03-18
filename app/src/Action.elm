@@ -146,10 +146,7 @@ businessBuysGoods state =
             state
 
         ( Just business, seed ) ->
-            if
-                Entity.inventoryAmount "AA" business < state.config.maxInventory
-                -- && (Entity.getFiatAccountFloatValue state.tick business > 2)
-            then
+            if Entity.inventoryAmount "AA" business < state.config.maxInventory then
                 buy_ state seed business
 
             else

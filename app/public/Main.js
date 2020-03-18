@@ -5556,13 +5556,13 @@ var $author$project$EngineData$config1 = {
 	itemPrice: A2($author$project$Money$createValue, $author$project$EngineData$fiatCurrency, 2),
 	maxInventory: 40,
 	maximumCCRatio: 0.0,
-	maximumPurchaseOfA: 30,
+	maximumPurchaseOfA: 16,
 	minimumBusinessInventoryOfA: 5,
 	minimumPurchaseOfA: 4,
 	monthlyCCIncome: A2($author$project$Money$createValue, $author$project$EngineData$cambiatus, 0),
 	monthlyItemConsumption: 16,
-	monthlyPurchaseCeilingHeadRoom: 10,
-	monthlyPurchaseCeilingInUnits: 140,
+	monthlyPurchaseCeilingHeadRoom: 0,
+	monthlyPurchaseCeilingInUnits: 80,
 	numberOfHouseholds: 20,
 	numberOfTimesToWatchContent: 1,
 	periodicHouseHoldFiatIncome: 16.0,
@@ -7037,6 +7037,7 @@ var $author$project$Main$init = function (flags) {
 			configurationList: $author$project$EngineData$configurationList,
 			configurationString: '1',
 			counter: 0,
+			data: _List_Nil,
 			filterString: '',
 			input: 'App started',
 			output: 'App started',
@@ -7349,6 +7350,15 @@ var $author$project$Main$changeConfig = F2(
 				state: A2($author$project$State$configure, configuration, seed)
 			});
 	});
+var $author$project$State$lostSales = function (log) {
+	return $elm$core$List$sum(
+		A2(
+			$elm$core$List$map,
+			function ($) {
+				return $.lostSales;
+			},
+			log));
+};
 var $elm$core$Basics$modBy = _Basics_modBy;
 var $author$project$Internal$Inventory$map2Item = F3(
 	function (f, _v0, _v1) {
@@ -8669,6 +8679,13 @@ var $author$project$Main$update = F2(
 			case 'Tick':
 				var _v1 = model.runState;
 				if (_v1.$ === 'Running') {
+					var updateData = F3(
+						function (runState_, state, data_) {
+							return _Utils_eq(runState_, $author$project$Main$Running) ? data_ : A2(
+								$elm$core$List$cons,
+								$author$project$State$lostSales(state.businessLog),
+								data_);
+						});
 					var _v2 = (_Utils_cmp(model.counter, model.state.config.cycleLength) > -1) ? _Utils_Tuple2(model.counter, $author$project$Main$End) : _Utils_Tuple2(model.counter + 1, $author$project$Main$Running);
 					var counter = _v2.a;
 					var runState = _v2.b;
@@ -8677,6 +8694,7 @@ var $author$project$Main$update = F2(
 							model,
 							{
 								counter: counter,
+								data: A3(updateData, runState, model.state, model.data),
 								runState: runState,
 								state: A3($author$project$Engine$nextState, model.configuration, counter, model.state)
 							}),
@@ -14769,6 +14787,83 @@ var $author$project$Main$displayLostSales = function (model) {
 	var data = model.state.businessLog;
 	return A2($elm$core$List$map, display, data);
 };
+var $author$project$Statistics$mean = function (data) {
+	return $elm$core$List$sum(data) / $elm$core$List$length(data);
+};
+var $author$project$Statistics$roundTo = F2(
+	function (d, x) {
+		var factor = A2($elm$core$Basics$pow, 10.0, d);
+		return function (u) {
+			return u / factor;
+		}(
+			$elm$core$Basics$round(x * factor));
+	});
+var $author$project$Statistics$center = function (data) {
+	var m = $author$project$Statistics$mean(data);
+	return A2(
+		$elm$core$List$map,
+		function (datum) {
+			return datum - m;
+		},
+		data);
+};
+var $author$project$Statistics$variance = function (data) {
+	return function (x) {
+		return x / $elm$core$List$length(data);
+	}(
+		$elm$core$List$sum(
+			A2(
+				$elm$core$List$map,
+				function (x) {
+					return x * x;
+				},
+				$author$project$Statistics$center(data))));
+};
+var $author$project$Statistics$stdev = function (data) {
+	return $elm$core$Basics$sqrt(
+		$author$project$Statistics$variance(data));
+};
+var $author$project$Statistics$stats = function (data) {
+	return {
+		mean: A2(
+			$author$project$Statistics$roundTo,
+			1,
+			$author$project$Statistics$mean(data)),
+		n: $elm$core$List$length(data),
+		stdev: A2(
+			$author$project$Statistics$roundTo,
+			1,
+			$author$project$Statistics$stdev(data))
+	};
+};
+var $author$project$Main$displayStatistics = function (model) {
+	var stats = $author$project$Statistics$stats(
+		A2($elm$core$List$map, $elm$core$Basics$toFloat, model.data));
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$spacing(8)
+			]),
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
+				$mdgriffith$elm_ui$Element$text(
+					$elm$core$String$fromInt(stats.n))),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
+				$mdgriffith$elm_ui$Element$text(
+					$elm$core$String$fromFloat(stats.mean))),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
+				$mdgriffith$elm_ui$Element$text(
+					$elm$core$String$fromFloat(stats.stdev)))
+			]));
+};
 var $author$project$Report$fiatBalanceOfEntityList = F2(
 	function (bt, entityList) {
 		var f = function (e) {
@@ -15040,7 +15135,8 @@ var $author$project$Main$dashboard = function (model) {
 						$mdgriffith$elm_ui$Element$spacing(4)
 					]),
 				$author$project$Main$displayLostSales(model)),
-				$author$project$Main$totalLostSales(model)
+				$author$project$Main$totalLostSales(model),
+				$author$project$Main$displayStatistics(model)
 			]));
 };
 var $author$project$Main$booleanOr = function (list) {

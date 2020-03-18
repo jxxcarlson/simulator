@@ -189,12 +189,12 @@ config1 =
     , maxInventory = 40
     , minimumBusinessInventoryOfA = 5
     , minimumPurchaseOfA = 4
-    , maximumPurchaseOfA = 30
+    , maximumPurchaseOfA = 16 -- 30
     , educationalContentCycle = 30
     , maximumCCRatio = 0.0
     , probabilityOfPurchasing = 0.6
-    , monthlyPurchaseCeilingInUnits = 140
-    , monthlyPurchaseCeilingHeadRoom = 10
+    , monthlyPurchaseCeilingInUnits = 80 -- 140
+    , monthlyPurchaseCeilingHeadRoom = 0
     , businessRent = 140
     , rentDueDate = 10
 
