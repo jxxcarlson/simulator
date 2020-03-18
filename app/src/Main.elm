@@ -476,13 +476,11 @@ mainColumn model =
         [ title "Simulator II"
         , row [ centerX, spacing 5 ]
             [ displayState model
-
-            -- , displayLog model
+            , displayLog model
             , dashboard model
             , controlPanel model
             ]
-
-        -- , graphDisplay model
+        , graphDisplay model
         , footer model
         ]
 
