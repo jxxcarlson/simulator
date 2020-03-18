@@ -1,4 +1,4 @@
-module State exposing (BusinessLog, State, configure, initialState, initialStateWithHouseholdsAndSeed, lostSales)
+module State exposing (BusinessLog, State, configure, initialState, initialStateWithHouseholdsAndSeed, lostSales, newBusinessLog)
 
 import EngineData exposing (Config)
 import Entity exposing (Entity)
@@ -75,12 +75,17 @@ configureWithBusinesses config state =
 
 setupBusinessLog : State -> State
 setupBusinessLog state =
+    { state | businessLog = newBusinessLog state }
+
+
+newBusinessLog : State -> List BusinessLog
+newBusinessLog state =
     let
         logItem : Entity -> BusinessLog
         logItem e =
             { name = Entity.getName e, lostSales = 0 }
     in
-    { state | businessLog = List.map logItem state.businesses }
+    List.map logItem state.businesses
 
 
 configureWithSuppliers : Config -> State -> State

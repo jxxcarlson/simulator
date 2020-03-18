@@ -5574,12 +5574,12 @@ var $author$project$EngineData$config1 = {
 	rentDueDate: 10,
 	subtitle: 'Simplistic random re-order model',
 	tickLoopInterval: 3 * 10,
-	title: 'CASE 1. Fiat currency only'
+	title: 'Fiat currency only'
 };
 var $author$project$EngineData$CCEarningsON = {$: 'CCEarningsON'};
 var $author$project$EngineData$config2 = _Utils_update(
 	$author$project$EngineData$config1,
-	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.5, subtitle: 'Somewhat more interesting', title: 'CASE 2: with CC Earnings'});
+	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.5, subtitle: 'Somewhat more interesting', title: 'Use CC Earnings'});
 var $author$project$EngineData$configurationList = _List_fromArray(
 	[$author$project$EngineData$config1, $author$project$EngineData$config2]);
 var $author$project$Entity$BusinessCharacteristics = function (a) {
@@ -6158,17 +6158,20 @@ var $author$project$Entity$getName = function (_v0) {
 	var common = _v0.a;
 	return common.name;
 };
-var $author$project$State$setupBusinessLog = function (state) {
+var $author$project$State$newBusinessLog = function (state) {
 	var logItem = function (e) {
 		return {
 			lostSales: 0,
 			name: $author$project$Entity$getName(e)
 		};
 	};
+	return A2($elm$core$List$map, logItem, state.businesses);
+};
+var $author$project$State$setupBusinessLog = function (state) {
 	return _Utils_update(
 		state,
 		{
-			businessLog: A2($elm$core$List$map, logItem, state.businesses)
+			businessLog: $author$project$State$newBusinessLog(state)
 		});
 };
 var $author$project$State$configure = F2(
@@ -8699,6 +8702,16 @@ var $author$project$Main$update = F2(
 			case 'Tick':
 				var _v1 = model.runState;
 				if (_v1.$ === 'Running') {
+					var updateBusinessLog = F3(
+						function (runMode_, counter_, log) {
+							var _v10 = _Utils_Tuple2(runMode_, counter_);
+							if ((_v10.a.$ === 'Batch') && (!_v10.b)) {
+								var _v11 = _v10.a;
+								return $author$project$State$newBusinessLog(model.state);
+							} else {
+								return log;
+							}
+						});
 					var _v2 = function () {
 						var _v3 = model.runMode;
 						if (_v3.$ === 'Single') {
@@ -8739,6 +8752,17 @@ var $author$project$Main$update = F2(
 					var counter = _v2.a;
 					var runState = _v2.b;
 					var batchJobState_ = _v2.c;
+					var newState = A3(
+						$author$project$Engine$nextState,
+						model.configuration,
+						counter,
+						function (st) {
+							return _Utils_update(
+								st,
+								{
+									businessLog: A3(updateBusinessLog, model.runMode, counter, st.businessLog)
+								});
+						}(model.state));
 					var updateData = F3(
 						function (runState_, state, data_) {
 							var _v7 = model.runMode;
@@ -8770,15 +8794,15 @@ var $author$project$Main$update = F2(
 								counter: counter,
 								data: A3(updateData, runState, model.state, model.data),
 								runState: runState,
-								state: A3($author$project$Engine$nextState, model.configuration, counter, model.state)
+								state: newState
 							}),
 						$elm$core$Platform$Cmd$none);
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			case 'CycleRun':
-				var _v10 = model.runState;
-				switch (_v10.$) {
+				var _v12 = model.runState;
+				switch (_v12.$) {
 					case 'Paused':
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -8807,8 +8831,8 @@ var $author$project$Main$update = F2(
 							$author$project$Main$getRandomNumber);
 				}
 			case 'CycleRunMode':
-				var _v11 = model.runMode;
-				if (_v11.$ === 'Single') {
+				var _v13 = model.runMode;
+				if (_v13.$ === 'Single') {
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						_Utils_update(
 							model,
@@ -8846,15 +8870,15 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$none);
 			case 'AcceptConfiguration':
 				var str = msg.a;
-				var _v12 = $elm$core$String$toInt(str);
-				if (_v12.$ === 'Nothing') {
+				var _v14 = $elm$core$String$toInt(str);
+				if (_v14.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{configurationString: str}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var k = _v12.a;
+					var k = _v14.a;
 					var index = k - 1;
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						A2($author$project$Main$changeConfig, index, model));
@@ -8864,6 +8888,10 @@ var $author$project$Main$update = F2(
 				var index = A2($elm$core$Basics$modBy, n, model.configurationIndex + 1);
 				return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 					A2($author$project$Main$changeConfig, index, model));
+			case 'SetModel':
+				var k = msg.a;
+				return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
+					A2($author$project$Main$changeConfig, k, model));
 			case 'DecrementModel':
 				var n = $elm$core$List$length(model.configurationList);
 				var index = A2($elm$core$Basics$modBy, n, model.configurationIndex - 1);
@@ -8873,12 +8901,12 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var str = result.a;
-					var _v14 = $elm$core$String$toInt(
+					var _v16 = $elm$core$String$toInt(
 						$elm$core$String$trim(str));
-					if (_v14.$ === 'Nothing') {
+					if (_v16.$ === 'Nothing') {
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
-						var rn = _v14.a;
+						var rn = _v16.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -14850,7 +14878,7 @@ var $author$project$Main$displayLostSales = function (model) {
 			$mdgriffith$elm_ui$Element$row,
 			_List_fromArray(
 				[
-					$mdgriffith$elm_ui$Element$spacing(8)
+					$mdgriffith$elm_ui$Element$spacing(2)
 				]),
 			_List_fromArray(
 				[
@@ -14859,15 +14887,15 @@ var $author$project$Main$displayLostSales = function (model) {
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width(
-							$mdgriffith$elm_ui$Element$px(80))
+							$mdgriffith$elm_ui$Element$px(20))
 						]),
-					$mdgriffith$elm_ui$Element$text(bl.name)),
+					$mdgriffith$elm_ui$Element$text(bl.name + ':')),
 					A2(
 					$mdgriffith$elm_ui$Element$el,
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width(
-							$mdgriffith$elm_ui$Element$px(80))
+							$mdgriffith$elm_ui$Element$px(20))
 						]),
 					$mdgriffith$elm_ui$Element$text(
 						$elm$core$String$fromInt(bl.lostSales)))
@@ -15117,7 +15145,7 @@ var $author$project$Main$totalLostSales = function (model) {
 		$mdgriffith$elm_ui$Element$el,
 		_List_Nil,
 		$mdgriffith$elm_ui$Element$text(
-			$elm$core$String$fromInt(total)));
+			'Total: ' + $elm$core$String$fromInt(total)));
 };
 var $author$project$Main$dashboard = function (model) {
 	return A2(
@@ -15218,13 +15246,17 @@ var $author$project$Main$dashboard = function (model) {
 				_List_Nil,
 				$mdgriffith$elm_ui$Element$text('------------------------------')),
 				A2(
-				$mdgriffith$elm_ui$Element$column,
+				$mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
 					[
 						$mdgriffith$elm_ui$Element$spacing(4)
 					]),
-				$author$project$Main$displayLostSales(model)),
-				$author$project$Main$totalLostSales(model),
+				_Utils_ap(
+					$author$project$Main$displayLostSales(model),
+					_List_fromArray(
+						[
+							$author$project$Main$totalLostSales(model)
+						]))),
 				$author$project$Main$displayStatistics(model)
 			]));
 };
@@ -15673,189 +15705,6 @@ var $mdgriffith$elm_ui$Internal$Model$Bottom = {$: 'Bottom'};
 var $mdgriffith$elm_ui$Element$alignBottom = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$Bottom);
 var $mdgriffith$elm_ui$Internal$Model$Left = {$: 'Left'};
 var $mdgriffith$elm_ui$Element$alignLeft = $mdgriffith$elm_ui$Internal$Model$AlignX($mdgriffith$elm_ui$Internal$Model$Left);
-var $author$project$Main$DecrementModel = {$: 'DecrementModel'};
-var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
-var $mdgriffith$elm_ui$Internal$Model$Describe = function (a) {
-	return {$: 'Describe', a: a};
-};
-var $elm$json$Json$Encode$bool = _Json_wrap;
-var $elm$html$Html$Attributes$boolProperty = F2(
-	function (key, bool) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$bool(bool));
-	});
-var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
-var $mdgriffith$elm_ui$Internal$Model$NoAttribute = {$: 'NoAttribute'};
-var $mdgriffith$elm_ui$Element$Input$hasFocusStyle = function (attr) {
-	if (((attr.$ === 'StyleClass') && (attr.b.$ === 'PseudoSelector')) && (attr.b.a.$ === 'Focus')) {
-		var _v1 = attr.b;
-		var _v2 = _v1.a;
-		return true;
-	} else {
-		return false;
-	}
-};
-var $mdgriffith$elm_ui$Element$Input$focusDefault = function (attrs) {
-	return A2($elm$core$List$any, $mdgriffith$elm_ui$Element$Input$hasFocusStyle, attrs) ? $mdgriffith$elm_ui$Internal$Model$NoAttribute : $mdgriffith$elm_ui$Internal$Model$htmlClass('focusable');
-};
-var $elm$virtual_dom$VirtualDom$Normal = function (a) {
-	return {$: 'Normal', a: a};
-};
-var $elm$html$Html$Events$on = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$Normal(decoder));
-	});
-var $elm$html$Html$Events$onClick = function (msg) {
-	return A2(
-		$elm$html$Html$Events$on,
-		'click',
-		$elm$json$Json$Decode$succeed(msg));
-};
-var $mdgriffith$elm_ui$Element$Events$onClick = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Events$onClick);
-var $mdgriffith$elm_ui$Element$Input$enter = 'Enter';
-var $elm$json$Json$Decode$andThen = _Json_andThen;
-var $elm$json$Json$Decode$fail = _Json_fail;
-var $elm$virtual_dom$VirtualDom$MayPreventDefault = function (a) {
-	return {$: 'MayPreventDefault', a: a};
-};
-var $elm$html$Html$Events$preventDefaultOn = F2(
-	function (event, decoder) {
-		return A2(
-			$elm$virtual_dom$VirtualDom$on,
-			event,
-			$elm$virtual_dom$VirtualDom$MayPreventDefault(decoder));
-	});
-var $elm$json$Json$Decode$string = _Json_decodeString;
-var $mdgriffith$elm_ui$Element$Input$onKey = F2(
-	function (desiredCode, msg) {
-		var decode = function (code) {
-			return _Utils_eq(code, desiredCode) ? $elm$json$Json$Decode$succeed(msg) : $elm$json$Json$Decode$fail('Not the enter key');
-		};
-		var isKey = A2(
-			$elm$json$Json$Decode$andThen,
-			decode,
-			A2($elm$json$Json$Decode$field, 'key', $elm$json$Json$Decode$string));
-		return $mdgriffith$elm_ui$Internal$Model$Attr(
-			A2(
-				$elm$html$Html$Events$preventDefaultOn,
-				'keyup',
-				A2(
-					$elm$json$Json$Decode$map,
-					function (fired) {
-						return _Utils_Tuple2(fired, true);
-					},
-					isKey)));
-	});
-var $mdgriffith$elm_ui$Element$Input$onEnter = function (msg) {
-	return A2($mdgriffith$elm_ui$Element$Input$onKey, $mdgriffith$elm_ui$Element$Input$enter, msg);
-};
-var $mdgriffith$elm_ui$Internal$Flag$cursor = $mdgriffith$elm_ui$Internal$Flag$flag(21);
-var $mdgriffith$elm_ui$Element$pointer = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$cursor, $mdgriffith$elm_ui$Internal$Style$classes.cursorPointer);
-var $elm$html$Html$Attributes$tabindex = function (n) {
-	return A2(
-		_VirtualDom_attribute,
-		'tabIndex',
-		$elm$core$String$fromInt(n));
-};
-var $mdgriffith$elm_ui$Element$Input$button = F2(
-	function (attrs, _v0) {
-		var onPress = _v0.onPress;
-		var label = _v0.label;
-		return A4(
-			$mdgriffith$elm_ui$Internal$Model$element,
-			$mdgriffith$elm_ui$Internal$Model$asEl,
-			$mdgriffith$elm_ui$Internal$Model$div,
-			A2(
-				$elm$core$List$cons,
-				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
-				A2(
-					$elm$core$List$cons,
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
-					A2(
-						$elm$core$List$cons,
-						$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentCenterX + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.seButton + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.noTextSelection)))))),
-						A2(
-							$elm$core$List$cons,
-							$mdgriffith$elm_ui$Element$pointer,
-							A2(
-								$elm$core$List$cons,
-								$mdgriffith$elm_ui$Element$Input$focusDefault(attrs),
-								A2(
-									$elm$core$List$cons,
-									$mdgriffith$elm_ui$Internal$Model$Describe($mdgriffith$elm_ui$Internal$Model$Button),
-									A2(
-										$elm$core$List$cons,
-										$mdgriffith$elm_ui$Internal$Model$Attr(
-											$elm$html$Html$Attributes$tabindex(0)),
-										function () {
-											if (onPress.$ === 'Nothing') {
-												return A2(
-													$elm$core$List$cons,
-													$mdgriffith$elm_ui$Internal$Model$Attr(
-														$elm$html$Html$Attributes$disabled(true)),
-													attrs);
-											} else {
-												var msg = onPress.a;
-												return A2(
-													$elm$core$List$cons,
-													$mdgriffith$elm_ui$Element$Events$onClick(msg),
-													A2(
-														$elm$core$List$cons,
-														$mdgriffith$elm_ui$Element$Input$onEnter(msg),
-														attrs));
-											}
-										}()))))))),
-			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
-				_List_fromArray(
-					[label])));
-	});
-var $mdgriffith$elm_ui$Element$Font$color = function (fontColor) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$fontColor,
-		A3(
-			$mdgriffith$elm_ui$Internal$Model$Colored,
-			'fc-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(fontColor),
-			'color',
-			fontColor));
-};
-var $author$project$Style$button = function () {
-	var g = 80;
-	return _List_fromArray(
-		[
-			$mdgriffith$elm_ui$Element$Background$color(
-			A3($mdgriffith$elm_ui$Element$rgb255, g, g, g)),
-			$mdgriffith$elm_ui$Element$Font$color(
-			A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)),
-			A2($mdgriffith$elm_ui$Element$paddingXY, 15, 8)
-		]);
-}();
-var $mdgriffith$elm_ui$Internal$Model$CenterY = {$: 'CenterY'};
-var $mdgriffith$elm_ui$Element$centerY = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$CenterY);
-var $author$project$Main$decrementModelButton = function (model) {
-	return A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$mdgriffith$elm_ui$Element$Input$button,
-				$author$project$Style$button,
-				{
-					label: A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[$mdgriffith$elm_ui$Element$centerY]),
-						$mdgriffith$elm_ui$Element$text('-')),
-					onPress: $elm$core$Maybe$Just($author$project$Main$DecrementModel)
-				})
-			]));
-};
 var $mdgriffith$elm_ui$Internal$Model$Fill = function (a) {
 	return {$: 'Fill', a: a};
 };
@@ -15863,6 +15712,8 @@ var $mdgriffith$elm_ui$Element$fill = $mdgriffith$elm_ui$Internal$Model$Fill(1);
 var $author$project$Main$AcceptFilter = function (a) {
 	return {$: 'AcceptFilter', a: a};
 };
+var $mdgriffith$elm_ui$Internal$Model$CenterY = {$: 'CenterY'};
+var $mdgriffith$elm_ui$Element$centerY = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$CenterY);
 var $mdgriffith$elm_ui$Element$Input$Label = F3(
 	function (a, b, c) {
 		return {$: 'Label', a: a, b: b, c: c};
@@ -15901,7 +15752,11 @@ var $mdgriffith$elm_ui$Element$paddingEach = function (_v0) {
 var $mdgriffith$elm_ui$Element$Input$TextInputNode = function (a) {
 	return {$: 'TextInputNode', a: a};
 };
+var $mdgriffith$elm_ui$Internal$Model$NoAttribute = {$: 'NoAttribute'};
 var $mdgriffith$elm_ui$Element$Input$TextArea = {$: 'TextArea'};
+var $mdgriffith$elm_ui$Internal$Model$Describe = function (a) {
+	return {$: 'Describe', a: a};
+};
 var $mdgriffith$elm_ui$Internal$Model$LivePolite = {$: 'LivePolite'};
 var $mdgriffith$elm_ui$Element$Region$announce = $mdgriffith$elm_ui$Internal$Model$Describe($mdgriffith$elm_ui$Internal$Model$LivePolite);
 var $mdgriffith$elm_ui$Element$Input$applyLabel = F3(
@@ -16029,6 +15884,7 @@ var $mdgriffith$elm_ui$Element$Input$calcMoveToCompensateForPadding = function (
 	}
 };
 var $mdgriffith$elm_ui$Element$clip = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$overflow, $mdgriffith$elm_ui$Internal$Style$classes.clip);
+var $mdgriffith$elm_ui$Internal$Flag$cursor = $mdgriffith$elm_ui$Internal$Flag$flag(21);
 var $mdgriffith$elm_ui$Internal$Flag$borderColor = $mdgriffith$elm_ui$Internal$Flag$flag(28);
 var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
 	return A2(
@@ -16091,6 +15947,15 @@ var $mdgriffith$elm_ui$Element$Input$getHeight = function (attr) {
 		return $elm$core$Maybe$Just(h);
 	} else {
 		return $elm$core$Maybe$Nothing;
+	}
+};
+var $mdgriffith$elm_ui$Element$Input$hasFocusStyle = function (attr) {
+	if (((attr.$ === 'StyleClass') && (attr.b.$ === 'PseudoSelector')) && (attr.b.a.$ === 'Focus')) {
+		var _v1 = attr.b;
+		var _v2 = _v1.a;
+		return true;
+	} else {
+		return false;
 	}
 };
 var $mdgriffith$elm_ui$Internal$Model$Label = function (a) {
@@ -16174,6 +16039,7 @@ var $elm$json$Json$Decode$at = F2(
 	function (fields, decoder) {
 		return A3($elm$core$List$foldr, $elm$json$Json$Decode$field, decoder, fields);
 	});
+var $elm$json$Json$Decode$string = _Json_decodeString;
 var $elm$html$Html$Events$targetValue = A2(
 	$elm$json$Json$Decode$at,
 	_List_fromArray(
@@ -16466,6 +16332,16 @@ var $mdgriffith$elm_ui$Element$alpha = function (o) {
 			transparency));
 };
 var $mdgriffith$elm_ui$Element$Input$charcoal = A3($mdgriffith$elm_ui$Element$rgb, 136 / 255, 138 / 255, 133 / 255);
+var $mdgriffith$elm_ui$Element$Font$color = function (fontColor) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$fontColor,
+		A3(
+			$mdgriffith$elm_ui$Internal$Model$Colored,
+			'fc-' + $mdgriffith$elm_ui$Internal$Model$formatColorClass(fontColor),
+			'color',
+			fontColor));
+};
 var $mdgriffith$elm_ui$Element$rgba = $mdgriffith$elm_ui$Internal$Model$Rgba;
 var $mdgriffith$elm_ui$Element$Input$renderPlaceholder = F3(
 	function (_v0, forPlaceholder, on) {
@@ -16494,6 +16370,14 @@ var $mdgriffith$elm_ui$Element$Input$renderPlaceholder = F3(
 			placeholderEl);
 	});
 var $elm$html$Html$span = _VirtualDom_node('span');
+var $elm$json$Json$Encode$bool = _Json_wrap;
+var $elm$html$Html$Attributes$boolProperty = F2(
+	function (key, bool) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$bool(bool));
+	});
 var $elm$html$Html$Attributes$spellcheck = $elm$html$Html$Attributes$boolProperty('spellcheck');
 var $mdgriffith$elm_ui$Element$Input$spellcheck = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Attributes$spellcheck);
 var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
@@ -16756,7 +16640,7 @@ var $author$project$Main$filterInput = function (model) {
 		_List_fromArray(
 			[
 				$mdgriffith$elm_ui$Element$width(
-				$mdgriffith$elm_ui$Element$px(300)),
+				$mdgriffith$elm_ui$Element$px(200)),
 				$mdgriffith$elm_ui$Element$height(
 				$mdgriffith$elm_ui$Element$px(30)),
 				$mdgriffith$elm_ui$Element$paddingEach(
@@ -16767,33 +16651,182 @@ var $author$project$Main$filterInput = function (model) {
 				$mdgriffith$elm_ui$Element$Input$labelLeft,
 				_List_fromArray(
 					[$mdgriffith$elm_ui$Element$centerY]),
-				$mdgriffith$elm_ui$Element$text('Exclude words: ')),
+				$mdgriffith$elm_ui$Element$text('Exclude from log: ')),
 			onChange: $author$project$Main$AcceptFilter,
 			placeholder: $elm$core$Maybe$Nothing,
 			text: model.filterString
 		});
 };
-var $author$project$Main$IncrementModel = {$: 'IncrementModel'};
-var $author$project$Main$incrementModelButton = function (model) {
-	return A2(
-		$mdgriffith$elm_ui$Element$row,
-		_List_Nil,
-		_List_fromArray(
-			[
-				A2(
-				$mdgriffith$elm_ui$Element$Input$button,
-				$author$project$Style$button,
-				{
-					label: A2(
-						$mdgriffith$elm_ui$Element$el,
-						_List_fromArray(
-							[$mdgriffith$elm_ui$Element$centerY]),
-						$mdgriffith$elm_ui$Element$text('+')),
-					onPress: $elm$core$Maybe$Just($author$project$Main$IncrementModel)
-				})
-			]));
-};
 var $author$project$Style$lightColor = A3($mdgriffith$elm_ui$Element$rgb255, 200, 200, 200);
+var $author$project$Main$SetModel = function (a) {
+	return {$: 'SetModel', a: a};
+};
+var $mdgriffith$elm_ui$Internal$Model$Button = {$: 'Button'};
+var $elm$html$Html$Attributes$disabled = $elm$html$Html$Attributes$boolProperty('disabled');
+var $mdgriffith$elm_ui$Element$Input$focusDefault = function (attrs) {
+	return A2($elm$core$List$any, $mdgriffith$elm_ui$Element$Input$hasFocusStyle, attrs) ? $mdgriffith$elm_ui$Internal$Model$NoAttribute : $mdgriffith$elm_ui$Internal$Model$htmlClass('focusable');
+};
+var $elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var $elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var $elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'click',
+		$elm$json$Json$Decode$succeed(msg));
+};
+var $mdgriffith$elm_ui$Element$Events$onClick = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Events$onClick);
+var $mdgriffith$elm_ui$Element$Input$enter = 'Enter';
+var $elm$json$Json$Decode$andThen = _Json_andThen;
+var $elm$json$Json$Decode$fail = _Json_fail;
+var $elm$virtual_dom$VirtualDom$MayPreventDefault = function (a) {
+	return {$: 'MayPreventDefault', a: a};
+};
+var $elm$html$Html$Events$preventDefaultOn = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$MayPreventDefault(decoder));
+	});
+var $mdgriffith$elm_ui$Element$Input$onKey = F2(
+	function (desiredCode, msg) {
+		var decode = function (code) {
+			return _Utils_eq(code, desiredCode) ? $elm$json$Json$Decode$succeed(msg) : $elm$json$Json$Decode$fail('Not the enter key');
+		};
+		var isKey = A2(
+			$elm$json$Json$Decode$andThen,
+			decode,
+			A2($elm$json$Json$Decode$field, 'key', $elm$json$Json$Decode$string));
+		return $mdgriffith$elm_ui$Internal$Model$Attr(
+			A2(
+				$elm$html$Html$Events$preventDefaultOn,
+				'keyup',
+				A2(
+					$elm$json$Json$Decode$map,
+					function (fired) {
+						return _Utils_Tuple2(fired, true);
+					},
+					isKey)));
+	});
+var $mdgriffith$elm_ui$Element$Input$onEnter = function (msg) {
+	return A2($mdgriffith$elm_ui$Element$Input$onKey, $mdgriffith$elm_ui$Element$Input$enter, msg);
+};
+var $mdgriffith$elm_ui$Element$pointer = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$cursor, $mdgriffith$elm_ui$Internal$Style$classes.cursorPointer);
+var $elm$html$Html$Attributes$tabindex = function (n) {
+	return A2(
+		_VirtualDom_attribute,
+		'tabIndex',
+		$elm$core$String$fromInt(n));
+};
+var $mdgriffith$elm_ui$Element$Input$button = F2(
+	function (attrs, _v0) {
+		var onPress = _v0.onPress;
+		var label = _v0.label;
+		return A4(
+			$mdgriffith$elm_ui$Internal$Model$element,
+			$mdgriffith$elm_ui$Internal$Model$asEl,
+			$mdgriffith$elm_ui$Internal$Model$div,
+			A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$shrink),
+				A2(
+					$elm$core$List$cons,
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$shrink),
+					A2(
+						$elm$core$List$cons,
+						$mdgriffith$elm_ui$Internal$Model$htmlClass($mdgriffith$elm_ui$Internal$Style$classes.contentCenterX + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.contentCenterY + (' ' + ($mdgriffith$elm_ui$Internal$Style$classes.seButton + (' ' + $mdgriffith$elm_ui$Internal$Style$classes.noTextSelection)))))),
+						A2(
+							$elm$core$List$cons,
+							$mdgriffith$elm_ui$Element$pointer,
+							A2(
+								$elm$core$List$cons,
+								$mdgriffith$elm_ui$Element$Input$focusDefault(attrs),
+								A2(
+									$elm$core$List$cons,
+									$mdgriffith$elm_ui$Internal$Model$Describe($mdgriffith$elm_ui$Internal$Model$Button),
+									A2(
+										$elm$core$List$cons,
+										$mdgriffith$elm_ui$Internal$Model$Attr(
+											$elm$html$Html$Attributes$tabindex(0)),
+										function () {
+											if (onPress.$ === 'Nothing') {
+												return A2(
+													$elm$core$List$cons,
+													$mdgriffith$elm_ui$Internal$Model$Attr(
+														$elm$html$Html$Attributes$disabled(true)),
+													attrs);
+											} else {
+												var msg = onPress.a;
+												return A2(
+													$elm$core$List$cons,
+													$mdgriffith$elm_ui$Element$Events$onClick(msg),
+													A2(
+														$elm$core$List$cons,
+														$mdgriffith$elm_ui$Element$Input$onEnter(msg),
+														attrs));
+											}
+										}()))))))),
+			$mdgriffith$elm_ui$Internal$Model$Unkeyed(
+				_List_fromArray(
+					[label])));
+	});
+var $author$project$Style$button = function () {
+	var g = 80;
+	return _List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$Background$color(
+			A3($mdgriffith$elm_ui$Element$rgb255, g, g, g)),
+			$mdgriffith$elm_ui$Element$Font$color(
+			A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)),
+			A2($mdgriffith$elm_ui$Element$paddingXY, 15, 8)
+		]);
+}();
+var $author$project$Style$selectedButton = _List_fromArray(
+	[
+		$mdgriffith$elm_ui$Element$Background$color(
+		A3($mdgriffith$elm_ui$Element$rgb255, 140, 0, 0)),
+		$mdgriffith$elm_ui$Element$Font$color(
+		A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 255)),
+		A2($mdgriffith$elm_ui$Element$paddingXY, 15, 8)
+	]);
+var $author$project$Main$modelButton = F2(
+	function (k, model) {
+		var buttonStyle_ = function () {
+			var _v0 = _Utils_eq(model.configurationIndex, k);
+			if (_v0) {
+				return $author$project$Style$selectedButton;
+			} else {
+				return $author$project$Style$button;
+			}
+		}();
+		return A2(
+			$mdgriffith$elm_ui$Element$row,
+			_List_Nil,
+			_List_fromArray(
+				[
+					A2(
+					$mdgriffith$elm_ui$Element$Input$button,
+					buttonStyle_,
+					{
+						label: A2(
+							$mdgriffith$elm_ui$Element$el,
+							_List_fromArray(
+								[$mdgriffith$elm_ui$Element$centerY]),
+							$mdgriffith$elm_ui$Element$text(
+								'Model ' + $elm$core$String$fromInt(k + 1))),
+						onPress: $elm$core$Maybe$Just(
+							$author$project$Main$SetModel(k))
+					})
+				]));
+	});
 var $author$project$Main$Reset = {$: 'Reset'};
 var $author$project$Main$resetButton = function (model) {
 	return A2(
@@ -16910,13 +16943,13 @@ var $author$project$Main$footer = function (model) {
 				$mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
 					[
-						$mdgriffith$elm_ui$Element$spacing(5),
+						$mdgriffith$elm_ui$Element$spacing(16),
 						$mdgriffith$elm_ui$Element$alignLeft
 					]),
 				_List_fromArray(
 					[
-						$author$project$Main$incrementModelButton(model),
-						$author$project$Main$decrementModelButton(model),
+						A2($author$project$Main$modelButton, 0, model),
+						A2($author$project$Main$modelButton, 1, model),
 						A2(
 						$mdgriffith$elm_ui$Element$el,
 						_List_fromArray(

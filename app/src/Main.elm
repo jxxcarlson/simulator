@@ -86,6 +86,7 @@ type Msg
     | AcceptConfiguration String
     | IncrementModel
     | DecrementModel
+    | SetModel Int
     | GotAtmosphericRandomNumber (Result Http.Error String)
 
 
@@ -187,6 +188,15 @@ update msg model =
                                         _ ->
                                             ( 0, End, EndBatch )
 
+                        updateBusinessLog : RunMode -> Int -> List BusinessLog -> List BusinessLog
+                        updateBusinessLog runMode_ counter_ log =
+                            case ( runMode_, counter_ ) of
+                                ( Batch, 0 ) ->
+                                    State.newBusinessLog model.state
+
+                                _ ->
+                                    log
+
                         updateData : RunState -> State -> List Int -> List Int
                         updateData runState_ state data_ =
                             case model.runMode of
@@ -205,10 +215,15 @@ update msg model =
 
                                         _ ->
                                             data_
+
+                        newState =
+                            model.state
+                                |> (\st -> { st | businessLog = updateBusinessLog model.runMode counter st.businessLog })
+                                |> Engine.nextState model.configuration counter
                     in
                     ( { model
                         | counter = counter
-                        , state = Engine.nextState model.configuration counter model.state
+                        , state = newState
                         , runState = runState
                         , data = updateData runState model.state model.data
                         , batchJobState = batchJobState_
@@ -290,6 +305,11 @@ update msg model =
             in
             model
                 |> changeConfig index
+                |> withNoCmd
+
+        SetModel k ->
+            model
+                |> changeConfig k
                 |> withNoCmd
 
         DecrementModel ->
@@ -393,8 +413,7 @@ dashboard model =
         , el [] (text <| "Fiat balances = " ++ fiatBalances model)
         , el [] (text <| "CC balances = " ++ ccBalances model)
         , el [] (text <| "------------------------------")
-        , column [ spacing 4 ] (displayLostSales model)
-        , totalLostSales model
+        , row [ spacing 4 ] (displayLostSales model ++ [ totalLostSales model ])
         , displayStatistics model
         ]
 
@@ -420,7 +439,7 @@ totalLostSales model =
         total =
             List.sum (List.map .lostSales data)
     in
-    el [] (text <| String.fromInt total)
+    el [] (text <| "Total: " ++ String.fromInt total)
 
 
 displayLostSales : Model -> List (Element msg)
@@ -431,9 +450,9 @@ displayLostSales model =
 
         display : BusinessLog -> Element msg
         display bl =
-            row [ spacing 8 ]
-                [ el [ width (px 80) ] (text bl.name)
-                , el [ width (px 80) ] (text <| String.fromInt bl.lostSales)
+            row [ spacing 2 ]
+                [ el [ width (px 20) ] (text <| bl.name ++ ":")
+                , el [ width (px 20) ] (text <| String.fromInt bl.lostSales)
                 ]
     in
     List.map display data
@@ -533,10 +552,12 @@ footer model =
         , runButton model
         , el [ Font.family [ Font.typeface "Courier" ] ] (text <| clock model.counter)
         , filterInput model
-        , row [ spacing 5, alignLeft ]
+        , row [ spacing 16, alignLeft ]
             [ -- configurationInput model
-              incrementModelButton model
-            , decrementModelButton model
+              -- incrementModelButton model
+              --, decrementModelButton model
+              modelButton 0 model
+            , modelButton 1 model
             , el [ Font.family [ Font.typeface "Courier" ], width (px 240) ] (text <| model.state.config.title)
             ]
 
@@ -659,11 +680,11 @@ resetButton model =
 
 
 filterInput model =
-    Input.text [ width (px 300), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
+    Input.text [ width (px 200), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
         { onChange = AcceptFilter
         , text = model.filterString
         , placeholder = Nothing
-        , label = Input.labelLeft [ centerY ] (text <| "Exclude words: ")
+        , label = Input.labelLeft [ centerY ] (text <| "Exclude from log: ")
         }
 
 
@@ -681,6 +702,24 @@ decrementModelButton model =
         [ Input.button Style.button
             { onPress = Just DecrementModel
             , label = el [ centerY ] (text "-")
+            }
+        ]
+
+
+modelButton k model =
+    let
+        buttonStyle_ =
+            case model.configurationIndex == k of
+                True ->
+                    Style.selectedButton
+
+                False ->
+                    Style.button
+    in
+    row []
+        [ Input.button buttonStyle_
+            { onPress = Just (SetModel k)
+            , label = el [ centerY ] (text <| "Model " ++ String.fromInt (k + 1))
             }
         ]
 

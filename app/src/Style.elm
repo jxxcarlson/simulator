@@ -6,6 +6,7 @@ module Style exposing
     , log
     , mainColumn
     , pausedColor
+    , selectedButton
     , titleColor
     )
 
@@ -52,6 +53,13 @@ button =
             80
     in
     [ Background.color (rgb255 g g g)
+    , Font.color (rgb255 255 255 255)
+    , paddingXY 15 8
+    ]
+
+
+selectedButton =
+    [ Background.color (rgb255 140 0 0)
     , Font.color (rgb255 255 255 255)
     , paddingXY 15 8
     ]

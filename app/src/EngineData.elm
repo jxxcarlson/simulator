@@ -162,7 +162,7 @@ config0 =
 
 config1 : Config
 config1 =
-    { title = "CASE 1. Fiat currency only"
+    { title = "Fiat currency only"
     , subtitle = "Simplistic random re-order model"
     , tickLoopInterval = 3 * 10
     , cycleLength = 60
@@ -216,7 +216,7 @@ config1 =
 config2 : Config
 config2 =
     { config1
-        | title = "CASE 2: with CC Earnings"
+        | title = "Use CC Earnings"
         , subtitle = "Somewhat more interesting"
         , ccEarnings = CCEarningsON
         , maximumCCRatio = 0.5
