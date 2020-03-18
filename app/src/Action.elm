@@ -146,7 +146,10 @@ businessBuysGoods state =
             state
 
         ( Just business, seed ) ->
-            if Entity.inventoryAmount "AA" business < state.config.maxInventory then
+            if
+                Entity.inventoryAmount "AA" business < state.config.maxInventory
+                -- && (Entity.getFiatAccountFloatValue state.tick business > 2)
+            then
                 buy_ state seed business
 
             else
@@ -156,27 +159,39 @@ businessBuysGoods state =
 buy_ state seed business =
     let
         ( purchaseAmt, seed2 ) =
-            purchaseAmount state seed
+            randomPurchaseAmount state seed
 
         fiatBalance =
             Entity.getFiatAccountFloatValue state.tick business
 
+        ccBalance =
+            Entity.getCCAccountFloatValue state.tick business
+
         purchaseCost =
             toFloat purchaseAmt * state.config.itemCost
 
-        maximumPurchaseAmount =
-            min fiatBalance purchaseCost
+        fiatRatio =
+            1 - state.config.maximumCCRatio
+
+        effectiveFiatBalance =
+            fiatBalance / fiatRatio
+
+        maximumPurchaseCost =
+            min effectiveFiatBalance purchaseCost |> floor |> toFloat
 
         adjustedPurchaseAmount =
-            floor (maximumPurchaseAmount / state.config.itemCost)
+            floor (maximumPurchaseCost / state.config.itemCost)
 
-        aCC : Int
-        aCC =
-            state.config.maximumCCRatio * toFloat adjustedPurchaseAmount |> round
+        ccPurchaseAmt =
+            state.config.maximumCCRatio * toFloat adjustedPurchaseAmount
 
-        aFiat : Int
-        aFiat =
-            adjustedPurchaseAmount - aCC
+        adjustedCCPurchaseAmt =
+            min ccPurchaseAmt ccBalance
+                |> floor
+
+        fiatPurchaseAmt : Int
+        fiatPurchaseAmt =
+            adjustedPurchaseAmount - adjustedCCPurchaseAmt
 
         item =
             ModelTypes.setQuantity purchaseAmt state.config.itemA
@@ -186,10 +201,11 @@ buy_ state seed business =
                 config =
                     state.config
             in
-            -- subtract total cost of items purchased from supplier
+            -- add purchased item to store inventory, then subtract total cost of items purchased from supplier
+            -- cost is fiat cost + cc cost
             Entity.addToInventory item business
-                |> AH.creditEntity config state.tick config.fiatCurrency Infinite (toFloat aFiat * -config.itemCost)
-                |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration (toFloat aCC * -config.itemCost)
+                |> AH.creditEntity config state.tick config.fiatCurrency Infinite (toFloat fiatPurchaseAmt * -config.itemCost)
+                |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration (toFloat adjustedCCPurchaseAmt * -config.itemCost)
 
         newBusinesses =
             List.Extra.updateIf
@@ -220,21 +236,21 @@ selectRandomBusiness state =
         Utility.randomElement newSeed state.businesses
 
 
-purchaseAmount : State -> Random.Seed -> ( Int, Random.Seed )
-purchaseAmount state seed =
+randomPurchaseAmount : State -> Random.Seed -> ( Int, Random.Seed )
+randomPurchaseAmount state seed =
     let
         ( p, newSeed ) =
             Random.step probability seed
 
-        randomPurchaseAmount : Float -> Int
-        randomPurchaseAmount q =
+        randomPurchaseAmount_ : Float -> Int
+        randomPurchaseAmount_ q =
             let
                 range =
                     toFloat (state.config.maximumPurchaseOfA - state.config.minimumPurchaseOfA)
             in
             state.config.minimumPurchaseOfA + round (q * range)
     in
-    ( randomPurchaseAmount p, newSeed )
+    ( randomPurchaseAmount_ p, newSeed )
 
 
 {-| Returns the maximum cumulative amount of goods that a business can purchase by a given data,
@@ -312,19 +328,15 @@ businessPaysRent t state =
 householdBuysGoods : Int -> State -> State
 householdBuysGoods t state =
     let
-        -- TODO: This let block needs some thought
-        sortByAccountValue : Entity -> Int
-        sortByAccountValue e =
-            Entity.getFiatAccount e
-                |> Account.value (Money.bankTime t)
-                |> Value.intValue
-                |> (\v -> -v)
+        sortByInventory : Entity -> Int
+        sortByInventory e =
+            Entity.inventoryAmount "AA" e
 
         n =
             List.length state.households
 
         orderedHouseholds =
-            List.sortBy (\e -> sortByAccountValue e) state.households
+            List.sortBy (\e -> sortByInventory e) state.households
                 |> List.take (n // 2)
 
         ( needyHousehold, newSeed ) =
@@ -338,30 +350,38 @@ householdBuysGoods t state =
             householdBuysGoods_ t e { state | seed = newSeed }
 
 
+
+-- { targetShop : Maybe Entity, emptyShops : List Entity, log : List BusinessLog }
+
+
 householdBuysGoods_ : Int -> Entity -> State -> State
 householdBuysGoods_ t household_ state =
-    case findShopWithPositiveInventory state household_ of
-        ( Nothing, newBusinessLog ) ->
-            { state | businessLog = newBusinessLog }
+    let
+        data =
+            findShopWithPositiveInventory state household_
 
-        ( Just shop_, newBusinessLog ) ->
+        message =
+            case ( data.targetShop, List.map Entity.getName data.emptyShops ) of
+                ( Just _, [] ) ->
+                    ""
+
+                ( Nothing, [] ) ->
+                    "NOTHING"
+
+                ( _, list ) ->
+                    "Empty: " ++ String.join ", " list
+    in
+    case data.targetShop of
+        Nothing ->
+            { state | businessLog = data.log }
+
+        Just shop ->
             let
-                ( shop, message ) =
-                    case Entity.inventoryAmount "AA" shop_ == 0 of
-                        False ->
-                            ( shop_, "" )
-
-                        True ->
-                            List.filter (\sh -> sh /= shop_) state.businesses
-                                |> List.head
-                                |> Maybe.withDefault shop_
-                                |> (\s -> ( s, "InventoryFailure" ))
-
                 ( amountToPurchase, newSeed ) =
                     amountToPurchaseFromShop state shop household_
 
                 ( newHousehold, newBusiness ) =
-                    buyItem t state amountToPurchase household_ shop_
+                    buyItem t state amountToPurchase household_ shop
 
                 newHouseholds =
                     List.Extra.updateIf
@@ -375,13 +395,11 @@ householdBuysGoods_ t household_ state =
                         (\_ -> newBusiness)
                         state.businesses
 
-                logString =
-                    case message of
-                        "InventoryFailure" ->
-                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from ((" ++ Entity.getName newBusiness ++ "))"
+                part1 =
+                    "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from " ++ Entity.getName newBusiness |> String.padRight 17 ' '
 
-                        _ ->
-                            "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from " ++ Entity.getName newBusiness
+                logString =
+                    part1 ++ " | " ++ message
             in
             { state
                 | households = newHouseholds
@@ -389,7 +407,7 @@ householdBuysGoods_ t household_ state =
                 , seed = newSeed
                 , totalHouseholdPurchases = state.totalHouseholdPurchases + amountToPurchase
                 , log = logItem state logString
-                , businessLog = newBusinessLog
+                , businessLog = data.log
             }
 
 
@@ -398,28 +416,28 @@ householdBuysGoods_ t household_ state =
 -- (1) findShopWithPositiveInventory
 
 
-findShopWithPositiveInventory : State -> Entity -> ( Maybe Entity, List BusinessLog )
+findShopWithPositiveInventory : State -> Entity -> Output
 findShopWithPositiveInventory state household =
     let
         businesses =
             List.sortBy (\e -> Entity.distance e household) state.businesses
     in
-    loop { shops = businesses, log = state.businessLog } nextState
+    loop { shops = businesses, log = state.businessLog, emptyShops = [] } nextState
 
 
-nextState : SState -> Step SState ( Maybe Entity, List BusinessLog )
+nextState : SState -> Step SState Output
 nextState st =
     case List.head st.shops of
         Nothing ->
-            Done ( Nothing, st.log )
+            Done { targetShop = Nothing, log = st.log, emptyShops = [] }
 
         Just shop ->
             case Entity.inventoryAmount "AA" shop == 0 of
                 True ->
-                    Loop { shops = List.drop 1 st.shops, log = incrementLostSales shop st.log }
+                    Loop { shops = List.drop 1 st.shops, log = incrementLostSales shop st.log, emptyShops = shop :: st.emptyShops }
 
                 False ->
-                    Done ( Just shop, st.log )
+                    Done { targetShop = Just shop, log = st.log, emptyShops = st.emptyShops }
 
 
 incrementLostSales : Entity -> List BusinessLog -> List BusinessLog
@@ -441,7 +459,11 @@ type Step state a
 
 
 type alias SState =
-    { shops : List Entity, log : List BusinessLog }
+    { shops : List Entity, log : List BusinessLog, emptyShops : List Entity }
+
+
+type alias Output =
+    { targetShop : Maybe Entity, emptyShops : List Entity, log : List BusinessLog }
 
 
 loop : state -> (state -> Step state a) -> a
@@ -475,8 +497,14 @@ householdPurchaseAmount seed state =
 
         range =
             toFloat (state.config.householdMaximumPurchaseAmount - state.config.householdMinimumPurchaseAmount)
+
+        amt =
+            state.config.householdMinimumPurchaseAmount + round (p * range)
+
+        adjustedAmount =
+            min amt state.config.householdInventoryUpperLimit
     in
-    ( state.config.householdMinimumPurchaseAmount + round (p * range), newSeed )
+    ( adjustedAmount, newSeed )
 
 
 amountToPurchaseFromShop state shop__ household__ =
@@ -490,7 +518,7 @@ amountToPurchaseFromShop state shop__ household__ =
         ( purchaseAmt, newSeed_ ) =
             householdPurchaseAmount state.seed state
     in
-    if householdInventoryAmt >= state.config.householdLowInventoryThreshold then
+    if householdInventoryAmt >= state.config.householdInventoryUpperLimit then
         -- Don't purchase itemA if already have enough on hand
         ( 0, newSeed_ )
 

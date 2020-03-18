@@ -1,4 +1,4 @@
-module Statistics exposing (center, mean, stdev, variance)
+module Statistics exposing (center, mean, roundTo, stats, stdev, variance)
 
 
 mean : List Float -> Float
@@ -27,3 +27,21 @@ variance data =
 stdev : List Float -> Float
 stdev data =
     sqrt (variance data)
+
+
+roundTo : Int -> Float -> Float
+roundTo d x =
+    let
+        factor =
+            10.0 ^ toFloat d
+    in
+    x
+        * factor
+        |> round
+        |> toFloat
+        |> (\u -> u / factor)
+
+
+stats : List Float -> ( Float, Float )
+stats data =
+    ( mean data |> roundTo 1, stdev data |> roundTo 1 )

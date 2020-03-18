@@ -89,7 +89,7 @@ type alias Config =
     , householdPurchaseDays : List Int
     , householdMinimumPurchaseAmount : Int
     , householdMaximumPurchaseAmount : Int
-    , householdLowInventoryThreshold : Int
+    , householdInventoryUpperLimit : Int
     , householdConsumptionDays : List Int
     , householdPayDays : List Int
     , periodicHouseHoldFiatIncome : Float
@@ -107,11 +107,11 @@ configurations =
     [ config1, config2 ]
 
 
-config1 : Config
-config1 =
+config0 : Config
+config0 =
     { title = "CASE 1. Fiat currency only"
     , subtitle = "Simplistic random re-order model"
-    , tickLoopInterval = 0.3 * 10
+    , tickLoopInterval = 3 * 10
     , cycleLength = 360
     , renderWidth = 573
     , gridWidth = 30
@@ -142,7 +142,7 @@ config1 =
     , probabilityOfPurchasing = 0.6
     , monthlyPurchaseCeilingInUnits = 70
     , monthlyPurchaseCeilingHeadRoom = 10
-    , businessRent = 80
+    , businessRent = 140
     , rentDueDate = 10
 
     -- Educators
@@ -152,10 +152,63 @@ config1 =
     , householdPurchaseDays = [ 1, 5, 9, 13, 17, 21, 25, 28 ] -- not used
     , householdMinimumPurchaseAmount = 2
     , householdMaximumPurchaseAmount = 5
-    , householdLowInventoryThreshold = 2
+    , householdInventoryUpperLimit = 2
     , householdConsumptionDays = [ 3, 7, 12, 15, 19, 23, 26, 29 ]
     , householdPayDays = [ 1, 15 ]
     , periodicHouseHoldFiatIncome = 8.0
+    , monthlyCCIncome = Money.createValue cambiatus 0
+    }
+
+
+config1 : Config
+config1 =
+    { title = "CASE 1. Fiat currency only"
+    , subtitle = "Simplistic random re-order model"
+    , tickLoopInterval = 3 * 10
+    , cycleLength = 360
+    , renderWidth = 573
+    , gridWidth = 30
+    , ccEarnings = CCEarningsOFF
+
+    -- Financial
+    , fiatCurrency = fiatCurrency
+    , fiatCurrencyName = "Real"
+    , complementaryCurrency = cambiatus
+    , complementaryCurrencyExpiration = Finite (Money.bankTime 360)
+    , educationPaymentPerCycle = 20.0
+
+    -- Businesses
+    , contentReleaseInterval = 15
+    , numberOfTimesToWatchContent = 1
+    , businessRadius = 10.0
+    , itemPrice = Money.createValue fiatCurrency 2
+    , itemCost = 1.0
+    , itemA = Item { name = "AA", price = Money.createValue fiatCurrency 2.0, quantity = 1 }
+    , itemAMoney = Money.createInfinite fiatCurrency 0 2.0
+    , randomPurchaseFraction = 0.1
+    , maxInventory = 40
+    , minimumBusinessInventoryOfA = 5
+    , minimumPurchaseOfA = 4
+    , maximumPurchaseOfA = 30
+    , educationalContentCycle = 30
+    , maximumCCRatio = 0.0
+    , probabilityOfPurchasing = 0.6
+    , monthlyPurchaseCeilingInUnits = 140
+    , monthlyPurchaseCeilingHeadRoom = 10
+    , businessRent = 140
+    , rentDueDate = 10
+
+    -- Educators
+    -- Households
+    , numberOfHouseholds = 20
+    , monthlyItemConsumption = 16
+    , householdPurchaseDays = [ 1, 5, 9, 13, 17, 21, 25, 28 ] -- not used
+    , householdMinimumPurchaseAmount = 2
+    , householdMaximumPurchaseAmount = 12
+    , householdInventoryUpperLimit = 6
+    , householdConsumptionDays = [ 3, 7, 12, 15, 19, 23, 26, 29 ]
+    , householdPayDays = [ 1, 15 ]
+    , periodicHouseHoldFiatIncome = 16.0
     , monthlyCCIncome = Money.createValue cambiatus 0
     }
 
@@ -166,7 +219,7 @@ config2 =
         | title = "CASE 2: with CC Earnings"
         , subtitle = "Somewhat more interesting"
         , ccEarnings = CCEarningsON
-        , maximumCCRatio = 0.15
+        , maximumCCRatio = 0.5
     }
 
 

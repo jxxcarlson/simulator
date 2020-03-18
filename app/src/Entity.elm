@@ -11,6 +11,7 @@ module Entity exposing
     , fiatAccount
     , fiatHoldingsOEntities
     , getCCAccount
+    , getCCAccountFloatValue
     , getColor
     , getFiatAccount
     , getFiatAccountFloatValue
@@ -189,6 +190,13 @@ getFiatAccount (Entity common _) =
 getFiatAccountFloatValue : Int -> Entity -> Float
 getFiatAccountFloatValue t (Entity common _) =
     common.fiatAccount
+        |> Account.value (Money.bankTime t)
+        |> Value.toFloat_
+
+
+getCCAccountFloatValue : Int -> Entity -> Float
+getCCAccountFloatValue t (Entity common _) =
+    common.complementaryAccount
         |> Account.value (Money.bankTime t)
         |> Value.toFloat_
 

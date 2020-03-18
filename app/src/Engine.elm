@@ -79,9 +79,9 @@ nextState : Config -> Int -> State -> State
 nextState config_ t state =
     { state | tick = t }
         |> Action.readEducationalContent
-        |> Action.businessPaysRent t
         |> Action.businessBuysGoods
         |> Action.payHouseholds config_ t
         |> Utility.iterate 2 (Action.householdBuysGoods t)
+        |> Action.businessPaysRent t
         |> Action.consumeA t
         |> Action.recordData t
