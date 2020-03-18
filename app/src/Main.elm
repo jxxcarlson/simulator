@@ -50,6 +50,10 @@ type alias Model =
     , configuration : EngineData.Config
     , runState : RunState
     , filterString : String
+    , cycleLengthString : String
+    , tickRateString : String
+    , ccRatioString : String
+    , rentString : String
     , runMode : RunMode
     , batchJobState : BatchJobState
     , trialsToRun : Int
@@ -75,6 +79,10 @@ type BatchJobState
     | InTrial Int
 
 
+
+-- MSG
+
+
 type Msg
     = NoOp
     | CellGrid CellGrid.Render.Msg
@@ -83,7 +91,11 @@ type Msg
     | CycleRunMode
     | Reset
     | AcceptFilter String
+    | AcceptCycleLength String
+    | AcceptTickRate String
+    | AcceptCCRatio String
     | AcceptConfiguration String
+    | AcceptRentString String
     | IncrementModel
     | DecrementModel
     | SetModel Int
@@ -109,8 +121,12 @@ init flags =
       , batchJobState = NoBatch
       , trialsToRun = 5
       , filterString = ""
+      , ccRatioString = ""
       , randomAtmosphericInt = Nothing
       , data = []
+      , cycleLengthString = ""
+      , tickRateString = ""
+      , rentString = ""
       }
     , getRandomNumber
     )
@@ -142,7 +158,7 @@ changeConfig k model =
 
 
 subscriptions model =
-    Time.every model.configuration.tickLoopInterval Tick
+    Time.every model.state.config.tickLoopInterval Tick
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -275,11 +291,27 @@ update msg model =
                 , counter = 0
                 , data = []
               }
+                |> updateCCRatio model.ccRatioString
+                |> updateCycleLength model.cycleLengthString
+                |> updateRent model.rentString
+                |> updateTickRate model.tickRateString
             , getRandomNumber
             )
 
         AcceptFilter str ->
             ( { model | filterString = str }, Cmd.none )
+
+        AcceptCycleLength str ->
+            updateCycleLength str model |> withNoCmd
+
+        AcceptTickRate str ->
+            updateTickRate str model |> withNoCmd
+
+        AcceptCCRatio str ->
+            updateCCRatio str model |> withNoCmd
+
+        AcceptRentString str ->
+            updateRent str model |> withNoCmd
 
         AcceptConfiguration str ->
             case String.toInt str of
@@ -344,6 +376,90 @@ update msg model =
 
 
 
+-- HELPER
+
+
+updateCycleLength : String -> Model -> Model
+updateCycleLength str model =
+    case String.toInt str of
+        Nothing ->
+            { model | cycleLengthString = str }
+
+        Just cycleLength_ ->
+            let
+                oldConfig =
+                    model.state.config
+
+                newConfig =
+                    { oldConfig | cycleLength = cycleLength_ }
+
+                newState =
+                    State.updateConfig newConfig model.state
+            in
+            { model | cycleLengthString = str, state = newState }
+
+
+updateTickRate : String -> Model -> Model
+updateTickRate str model =
+    case String.toFloat str of
+        Nothing ->
+            { model | tickRateString = str }
+
+        Just tickRate ->
+            let
+                oldConfig =
+                    model.state.config
+
+                newConfig =
+                    { oldConfig | tickLoopInterval = tickRate }
+
+                newState =
+                    State.updateConfig newConfig model.state
+            in
+            { model | tickRateString = str, state = newState }
+
+
+updateCCRatio : String -> Model -> Model
+updateCCRatio str model =
+    case String.toFloat str of
+        Nothing ->
+            { model | ccRatioString = str }
+
+        Just ccRatio_ ->
+            let
+                oldConfig =
+                    model.state.config
+
+                newConfig =
+                    { oldConfig | maximumCCRatio = ccRatio_ }
+
+                newState =
+                    State.updateConfig newConfig model.state
+            in
+            { model | ccRatioString = str, state = newState }
+
+
+updateRent : String -> Model -> Model
+updateRent str model =
+    case String.toFloat str of
+        Nothing ->
+            { model | rentString = str }
+
+        Just rent_ ->
+            let
+                oldConfig =
+                    model.state.config
+
+                newConfig =
+                    { oldConfig | businessRent = rent_ }
+
+                newState =
+                    State.updateConfig newConfig model.state
+            in
+            { model | rentString = str, state = newState }
+
+
+
 --
 -- VIEW
 --
@@ -362,6 +478,7 @@ mainColumn model =
             [ displayState model
             , displayLog model
             , dashboard model
+            , controlPanel model
             ]
         , graphDisplay model
         , footer model
@@ -392,6 +509,17 @@ graphDisplay model =
         [ SimpleGraph.barChart lineGraphAttributes (List.map Tuple.second model.state.data |> List.reverse) |> Element.html ]
 
 
+controlPanel : Model -> Element Msg
+controlPanel model =
+    column Style.controlPanel
+        [ el [] (text <| "Control Panel")
+        , cycleLengthInput model
+        , tickRateInput model
+        , ccRatioInput model
+        , rentInput model
+        ]
+
+
 dashboard : Model -> Element msg
 dashboard model =
     column Style.dashboard
@@ -399,6 +527,7 @@ dashboard model =
         , el [] (text <| model.state.config.subtitle)
         , el [] (text <| "------------------------------")
         , el [] (text <| "Cycle length = " ++ String.fromInt model.state.config.cycleLength)
+        , el [] (text <| "Rate = " ++ String.fromFloat model.state.config.tickLoopInterval)
         , el [] (text <| clock model.counter)
         , el [] (text <| "------------------------------")
         , el [] (text <| "Households = " ++ String.fromInt (model.state.households |> List.length))
@@ -685,6 +814,42 @@ filterInput model =
         , text = model.filterString
         , placeholder = Nothing
         , label = Input.labelLeft [ centerY ] (text <| "Exclude from log: ")
+        }
+
+
+cycleLengthInput model =
+    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
+        { onChange = AcceptCycleLength
+        , text = model.cycleLengthString
+        , placeholder = Nothing
+        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Cycle ")
+        }
+
+
+tickRateInput model =
+    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
+        { onChange = AcceptTickRate
+        , text = model.tickRateString
+        , placeholder = Nothing
+        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Rate ")
+        }
+
+
+ccRatioInput model =
+    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
+        { onChange = AcceptCCRatio
+        , text = model.ccRatioString
+        , placeholder = Nothing
+        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "CC Ratio ")
+        }
+
+
+rentInput model =
+    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
+        { onChange = AcceptRentString
+        , text = model.rentString
+        , placeholder = Nothing
+        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Rent ")
         }
 
 

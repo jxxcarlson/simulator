@@ -1,5 +1,6 @@
 module Style exposing
     ( button
+    , controlPanel
     , dashboard
     , endColor
     , lightColor
@@ -35,10 +36,21 @@ dashboard =
     ]
 
 
+controlPanel =
+    [ Background.color (rgb255 200 200 200)
+    , paddingXY 12 18
+    , width (px 150)
+    , height (px 570)
+    , spacing 6
+    , Font.size 14
+    , Font.family [ Font.typeface "Courier" ]
+    ]
+
+
 log =
     [ Background.color (rgb255 200 200 200)
     , paddingXY 12 18
-    , width (px 350)
+    , width (px 330)
     , height (px 570)
     , spacing 3
     , Font.size 14

@@ -1,4 +1,13 @@
-module State exposing (BusinessLog, State, configure, initialState, initialStateWithHouseholdsAndSeed, lostSales, newBusinessLog)
+module State exposing
+    ( BusinessLog
+    , State
+    , configure
+    , initialState
+    , initialStateWithHouseholdsAndSeed
+    , lostSales
+    , newBusinessLog
+    , updateConfig
+    )
 
 import EngineData exposing (Config)
 import Entity exposing (Entity)
@@ -24,6 +33,11 @@ type alias State =
 
 type alias BusinessLog =
     { name : String, lostSales : Int }
+
+
+updateConfig : Config -> State -> State
+updateConfig config state =
+    { state | config = config }
 
 
 lostSales : List BusinessLog -> Int
