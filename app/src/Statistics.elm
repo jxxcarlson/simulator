@@ -42,6 +42,6 @@ roundTo d x =
         |> (\u -> u / factor)
 
 
-stats : List Float -> ( Float, Float )
+stats : List Float -> ( Int, Float, Float )
 stats data =
-    ( mean data |> roundTo 1, stdev data |> roundTo 1 )
+    ( List.length data, mean data |> roundTo 1, stdev data |> roundTo 1 )
