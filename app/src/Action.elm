@@ -580,7 +580,7 @@ recordData : Int -> State -> State
 recordData tick state =
     let
         i =
-            Report.businessInventoryOf "AA" state |> List.head |> Maybe.withDefault 0 |> toFloat
+            Report.businessInventoryOf "AA" state |> List.minimum |> Maybe.withDefault 0 |> toFloat
 
         t =
             toFloat tick

@@ -5458,7 +5458,9 @@ var $elm$core$Task$perform = F2(
 				A2($elm$core$Task$map, toMessage, task)));
 	});
 var $elm$browser$Browser$element = _Browser_element;
+var $author$project$Main$NoBatch = {$: 'NoBatch'};
 var $author$project$Main$Paused = {$: 'Paused'};
+var $author$project$Main$Single = {$: 'Single'};
 var $author$project$EngineData$CCEarningsOFF = {$: 'CCEarningsOFF'};
 var $author$project$Internal$Types$Finite = function (a) {
 	return {$: 'Finite', a: a};
@@ -5530,7 +5532,7 @@ var $author$project$EngineData$config1 = {
 	complementaryCurrencyExpiration: $author$project$Internal$Types$Finite(
 		$author$project$Money$bankTime(360)),
 	contentReleaseInterval: 15,
-	cycleLength: 360,
+	cycleLength: 60,
 	educationPaymentPerCycle: 20.0,
 	educationalContentCycle: 30,
 	fiatCurrency: $author$project$EngineData$fiatCurrency,
@@ -7029,6 +7031,7 @@ var $elm$core$Maybe$withDefault = F2(
 var $author$project$Main$init = function (flags) {
 	return _Utils_Tuple2(
 		{
+			batchJobState: $author$project$Main$NoBatch,
 			configuration: A2(
 				$elm$core$Maybe$withDefault,
 				$author$project$EngineData$config1,
@@ -7042,8 +7045,10 @@ var $author$project$Main$init = function (flags) {
 			input: 'App started',
 			output: 'App started',
 			randomAtmosphericInt: $elm$core$Maybe$Nothing,
+			runMode: $author$project$Main$Single,
 			runState: $author$project$Main$Paused,
-			state: A2($author$project$State$configure, $author$project$EngineData$config1, 400)
+			state: A2($author$project$State$configure, $author$project$EngineData$config1, 400),
+			trialsToRun: 5
 		},
 		$author$project$Main$getRandomNumber);
 };
@@ -7323,7 +7328,12 @@ var $elm$time$Time$every = F2(
 var $author$project$Main$subscriptions = function (model) {
 	return A2($elm$time$Time$every, model.configuration.tickLoopInterval, $author$project$Main$Tick);
 };
+var $author$project$Main$Batch = {$: 'Batch'};
 var $author$project$Main$End = {$: 'End'};
+var $author$project$Main$EndBatch = {$: 'EndBatch'};
+var $author$project$Main$InTrial = function (a) {
+	return {$: 'InTrial', a: a};
+};
 var $author$project$Main$Running = {$: 'Running'};
 var $author$project$Main$changeConfig = F2(
 	function (k, model) {
@@ -8620,13 +8630,23 @@ var $author$project$Report$businessInventoryOf = F2(
 		};
 		return A2($elm$core$List$map, f, state.businesses);
 	});
+var $elm$core$List$minimum = function (list) {
+	if (list.b) {
+		var x = list.a;
+		var xs = list.b;
+		return $elm$core$Maybe$Just(
+			A3($elm$core$List$foldl, $elm$core$Basics$min, x, xs));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
 var $author$project$Action$recordData = F2(
 	function (tick, state) {
 		var t = tick;
 		var i = A2(
 			$elm$core$Maybe$withDefault,
 			0,
-			$elm$core$List$head(
+			$elm$core$List$minimum(
 				A2($author$project$Report$businessInventoryOf, 'AA', state)));
 		return _Utils_update(
 			state,
@@ -8679,20 +8699,74 @@ var $author$project$Main$update = F2(
 			case 'Tick':
 				var _v1 = model.runState;
 				if (_v1.$ === 'Running') {
-					var updateData = F3(
-						function (runState_, state, data_) {
-							return _Utils_eq(runState_, $author$project$Main$Running) ? data_ : A2(
-								$elm$core$List$cons,
-								$author$project$State$lostSales(state.businessLog),
-								data_);
-						});
-					var _v2 = (_Utils_cmp(model.counter, model.state.config.cycleLength) > -1) ? _Utils_Tuple2(model.counter, $author$project$Main$End) : _Utils_Tuple2(model.counter + 1, $author$project$Main$Running);
+					var _v2 = function () {
+						var _v3 = model.runMode;
+						if (_v3.$ === 'Single') {
+							var _v4 = _Utils_cmp(model.counter, model.state.config.cycleLength) < 0;
+							if (_v4) {
+								return _Utils_Tuple3(model.counter + 1, $author$project$Main$Running, $author$project$Main$NoBatch);
+							} else {
+								return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$NoBatch);
+							}
+						} else {
+							var n = model.trialsToRun - 1;
+							var _v5 = model.batchJobState;
+							if (_v5.$ === 'InTrial') {
+								var k = _v5.a;
+								var _v6 = _Utils_Tuple2(
+									_Utils_cmp(model.counter, model.state.config.cycleLength) < 0,
+									_Utils_cmp(k, n) < 0);
+								if (_v6.a) {
+									return _Utils_Tuple3(
+										model.counter + 1,
+										$author$project$Main$Running,
+										$author$project$Main$InTrial(k));
+								} else {
+									if (_v6.b) {
+										return _Utils_Tuple3(
+											0,
+											$author$project$Main$Running,
+											$author$project$Main$InTrial(k + 1));
+									} else {
+										return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
+									}
+								}
+							} else {
+								return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
+							}
+						}
+					}();
 					var counter = _v2.a;
 					var runState = _v2.b;
+					var batchJobState_ = _v2.c;
+					var updateData = F3(
+						function (runState_, state, data_) {
+							var _v7 = model.runMode;
+							if (_v7.$ === 'Single') {
+								if (runState.$ === 'End') {
+									return A2(
+										$elm$core$List$cons,
+										$author$project$State$lostSales(state.businessLog),
+										data_);
+								} else {
+									return data_;
+								}
+							} else {
+								if (!counter) {
+									return A2(
+										$elm$core$List$cons,
+										$author$project$State$lostSales(state.businessLog),
+										data_);
+								} else {
+									return data_;
+								}
+							}
+						});
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{
+								batchJobState: batchJobState_,
 								counter: counter,
 								data: A3(updateData, runState, model.state, model.data),
 								runState: runState,
@@ -8702,9 +8776,9 @@ var $author$project$Main$update = F2(
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
-			case 'ToggleRun':
-				var _v3 = model.runState;
-				switch (_v3.$) {
+			case 'CycleRun':
+				var _v10 = model.runState;
+				switch (_v10.$) {
 					case 'Paused':
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -8718,11 +8792,35 @@ var $author$project$Main$update = F2(
 								{runState: $author$project$Main$Paused}),
 							$elm$core$Platform$Cmd$none);
 					default:
+						var config = model.configuration;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
-								{runState: $author$project$Main$End}),
-							$elm$core$Platform$Cmd$none);
+								{
+									counter: 0,
+									runState: $author$project$Main$Running,
+									state: A2(
+										$author$project$State$configure,
+										config,
+										A2($elm$core$Maybe$withDefault, 400, model.randomAtmosphericInt))
+								}),
+							$author$project$Main$getRandomNumber);
+				}
+			case 'CycleRunMode':
+				var _v11 = model.runMode;
+				if (_v11.$ === 'Single') {
+					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
+						_Utils_update(
+							model,
+							{
+								batchJobState: $author$project$Main$InTrial(0),
+								runMode: $author$project$Main$Batch
+							}));
+				} else {
+					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
+						_Utils_update(
+							model,
+							{batchJobState: $author$project$Main$NoBatch, runMode: $author$project$Main$Single}));
 				}
 			case 'Reset':
 				var config = model.configuration;
@@ -8731,6 +8829,7 @@ var $author$project$Main$update = F2(
 						model,
 						{
 							counter: 0,
+							data: _List_Nil,
 							runState: $author$project$Main$Paused,
 							state: A2(
 								$author$project$State$configure,
@@ -8747,15 +8846,15 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$none);
 			case 'AcceptConfiguration':
 				var str = msg.a;
-				var _v4 = $elm$core$String$toInt(str);
-				if (_v4.$ === 'Nothing') {
+				var _v12 = $elm$core$String$toInt(str);
+				if (_v12.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{configurationString: str}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var k = _v4.a;
+					var k = _v12.a;
 					var index = k - 1;
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						A2($author$project$Main$changeConfig, index, model));
@@ -8774,12 +8873,12 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var str = result.a;
-					var _v6 = $elm$core$String$toInt(
+					var _v14 = $elm$core$String$toInt(
 						$elm$core$String$trim(str));
-					if (_v6.$ === 'Nothing') {
+					if (_v14.$ === 'Nothing') {
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
-						var rn = _v6.a;
+						var rn = _v14.a;
 						return _Utils_Tuple2(
 							_Utils_update(
 								model,
@@ -12048,16 +12147,6 @@ var $elm$core$List$maximum = function (list) {
 		var xs = list.b;
 		return $elm$core$Maybe$Just(
 			A3($elm$core$List$foldl, $elm$core$Basics$max, x, xs));
-	} else {
-		return $elm$core$Maybe$Nothing;
-	}
-};
-var $elm$core$List$minimum = function (list) {
-	if (list.b) {
-		var x = list.a;
-		var xs = list.b;
-		return $elm$core$Maybe$Just(
-			A3($elm$core$List$foldl, $elm$core$Basics$min, x, xs));
 	} else {
 		return $elm$core$Maybe$Nothing;
 	}
@@ -16725,17 +16814,17 @@ var $author$project$Main$resetButton = function (model) {
 				})
 			]));
 };
-var $author$project$Main$ToggleRun = {$: 'ToggleRun'};
+var $author$project$Main$CycleRun = {$: 'CycleRun'};
 var $author$project$Main$runButton = function (model) {
 	var label = function () {
 		var _v0 = model.runState;
 		switch (_v0.$) {
 			case 'Running':
-				return 'Running';
+				return 'Pause';
 			case 'Paused':
 				return 'Run';
 			default:
-				return 'End';
+				return 'Start';
 		}
 	}();
 	return A2(
@@ -16752,7 +16841,35 @@ var $author$project$Main$runButton = function (model) {
 						_List_fromArray(
 							[$mdgriffith$elm_ui$Element$centerY]),
 						$mdgriffith$elm_ui$Element$text(label)),
-					onPress: $elm$core$Maybe$Just($author$project$Main$ToggleRun)
+					onPress: $elm$core$Maybe$Just($author$project$Main$CycleRun)
+				})
+			]));
+};
+var $author$project$Main$CycleRunMode = {$: 'CycleRunMode'};
+var $author$project$Main$runModeButton = function (model) {
+	var label = function () {
+		var _v0 = model.runMode;
+		if (_v0.$ === 'Single') {
+			return 'Single';
+		} else {
+			return 'Batch';
+		}
+	}();
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_Nil,
+		_List_fromArray(
+			[
+				A2(
+				$mdgriffith$elm_ui$Element$Input$button,
+				$author$project$Style$button,
+				{
+					label: A2(
+						$mdgriffith$elm_ui$Element$el,
+						_List_fromArray(
+							[$mdgriffith$elm_ui$Element$centerY]),
+						$mdgriffith$elm_ui$Element$text(label)),
+					onPress: $elm$core$Maybe$Just($author$project$Main$CycleRunMode)
 				})
 			]));
 };
@@ -16773,6 +16890,7 @@ var $author$project$Main$footer = function (model) {
 			]),
 		_List_fromArray(
 			[
+				$author$project$Main$runModeButton(model),
 				$author$project$Main$resetButton(model),
 				$author$project$Main$runButton(model),
 				A2(

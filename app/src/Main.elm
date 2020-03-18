@@ -50,6 +50,9 @@ type alias Model =
     , configuration : EngineData.Config
     , runState : RunState
     , filterString : String
+    , runMode : RunMode
+    , batchJobState : BatchJobState
+    , trialsToRun : Int
     , randomAtmosphericInt : Maybe Int
     , data : List Int
     }
@@ -61,11 +64,23 @@ type RunState
     | End
 
 
+type RunMode
+    = Single
+    | Batch
+
+
+type BatchJobState
+    = NoBatch
+    | EndBatch
+    | InTrial Int
+
+
 type Msg
     = NoOp
     | CellGrid CellGrid.Render.Msg
     | Tick Time.Posix
-    | ToggleRun
+    | CycleRun
+    | CycleRunMode
     | Reset
     | AcceptFilter String
     | AcceptConfiguration String
@@ -89,6 +104,9 @@ init flags =
       , configuration = List.Extra.getAt 0 EngineData.configurationList |> Maybe.withDefault EngineData.config1
       , state = State.configure EngineData.config1 400
       , runState = Paused
+      , runMode = Single
+      , batchJobState = NoBatch
+      , trialsToRun = 5
       , filterString = ""
       , randomAtmosphericInt = Nothing
       , data = []
@@ -139,26 +157,61 @@ update msg model =
             case model.runState of
                 Running ->
                     let
-                        ( counter, runState ) =
-                            if model.counter >= model.state.config.cycleLength then
-                                ( model.counter, End )
+                        ( counter, runState, batchJobState_ ) =
+                            case model.runMode of
+                                Single ->
+                                    case model.counter < model.state.config.cycleLength of
+                                        True ->
+                                            ( model.counter + 1, Running, NoBatch )
 
-                            else
-                                ( model.counter + 1, Running )
+                                        False ->
+                                            ( 0, End, NoBatch )
+
+                                Batch ->
+                                    let
+                                        n =
+                                            model.trialsToRun - 1
+                                    in
+                                    case model.batchJobState of
+                                        InTrial k ->
+                                            case ( model.counter < model.state.config.cycleLength, k < n ) of
+                                                ( True, _ ) ->
+                                                    ( model.counter + 1, Running, InTrial k )
+
+                                                ( False, True ) ->
+                                                    ( 0, Running, InTrial (k + 1) )
+
+                                                ( False, False ) ->
+                                                    ( 0, End, EndBatch )
+
+                                        _ ->
+                                            ( 0, End, EndBatch )
 
                         updateData : RunState -> State -> List Int -> List Int
                         updateData runState_ state data_ =
-                            if runState_ == Running then
-                                data_
+                            case model.runMode of
+                                Single ->
+                                    case runState of
+                                        End ->
+                                            State.lostSales state.businessLog :: data_
 
-                            else
-                                State.lostSales state.businessLog :: data_
+                                        _ ->
+                                            data_
+
+                                Batch ->
+                                    case counter of
+                                        0 ->
+                                            State.lostSales state.businessLog :: data_
+
+                                        _ ->
+                                            data_
                     in
                     ( { model
                         | counter = counter
                         , state = Engine.nextState model.configuration counter model.state
                         , runState = runState
                         , data = updateData runState model.state model.data
+                        , batchJobState = batchJobState_
                       }
                     , Cmd.none
                     )
@@ -166,7 +219,7 @@ update msg model =
                 _ ->
                     ( model, Cmd.none )
 
-        ToggleRun ->
+        CycleRun ->
             case model.runState of
                 Paused ->
                     ( { model | runState = Running }, Cmd.none )
@@ -175,7 +228,26 @@ update msg model =
                     ( { model | runState = Paused }, Cmd.none )
 
                 End ->
-                    ( { model | runState = End }, Cmd.none )
+                    --( { model | runState = End }, Cmd.none )
+                    let
+                        config =
+                            model.configuration
+                    in
+                    ( { model
+                        | state = State.configure config (model.randomAtmosphericInt |> Maybe.withDefault 400)
+                        , runState = Running
+                        , counter = 0
+                      }
+                    , getRandomNumber
+                    )
+
+        CycleRunMode ->
+            case model.runMode of
+                Single ->
+                    { model | runMode = Batch, batchJobState = InTrial 0 } |> withNoCmd
+
+                Batch ->
+                    { model | runMode = Single, batchJobState = NoBatch } |> withNoCmd
 
         Reset ->
             let
@@ -186,6 +258,7 @@ update msg model =
                 | state = State.configure config (model.randomAtmosphericInt |> Maybe.withDefault 400)
                 , runState = Paused
                 , counter = 0
+                , data = []
               }
             , getRandomNumber
             )
@@ -455,7 +528,8 @@ footer model =
         , width fill
         , height (px 40)
         ]
-        [ resetButton model
+        [ runModeButton model
+        , resetButton model
         , runButton model
         , el [ Font.family [ Font.typeface "Courier" ] ] (text <| clock model.counter)
         , filterInput model
@@ -540,17 +614,36 @@ runButton model =
         label =
             case model.runState of
                 Running ->
-                    "Running"
+                    "Pause"
 
                 Paused ->
                     "Run"
 
                 End ->
-                    "End"
+                    "Start"
     in
     row []
         [ Input.button Style.button
-            { onPress = Just ToggleRun
+            { onPress = Just CycleRun
+            , label = el [ centerY ] (text label)
+            }
+        ]
+
+
+runModeButton : Model -> Element Msg
+runModeButton model =
+    let
+        label =
+            case model.runMode of
+                Single ->
+                    "Single"
+
+                Batch ->
+                    "Batch"
+    in
+    row []
+        [ Input.button Style.button
+            { onPress = Just CycleRunMode
             , label = el [ centerY ] (text label)
             }
         ]
