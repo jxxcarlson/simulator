@@ -28,6 +28,7 @@ import Statistics
 import String.Interpolate exposing (interpolate)
 import Style
 import Time
+import Widget.TextField as TextField
 
 
 main =
@@ -108,25 +109,30 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
+    let
+        config : EngineData.Config
+        config =
+            List.Extra.getAt 0 EngineData.configurationList |> Maybe.withDefault EngineData.config1
+    in
     ( { input = "App started"
       , output = "App started"
       , counter = 0
       , configurationString = "1"
       , configurationList = EngineData.configurationList
       , configurationIndex = 0
-      , configuration = List.Extra.getAt 0 EngineData.configurationList |> Maybe.withDefault EngineData.config1
-      , state = State.configure EngineData.config1 400
+      , configuration = config
+      , state = State.configure config 400
       , runState = Paused
       , runMode = Single
       , batchJobState = NoBatch
       , trialsToRun = 5
       , filterString = ""
-      , ccRatioString = ""
+      , ccRatioString = String.fromFloat config.maximumCCRatio
       , randomAtmosphericInt = Nothing
       , data = []
-      , cycleLengthString = ""
-      , tickRateString = ""
-      , rentString = ""
+      , cycleLengthString = String.fromInt config.cycleLength
+      , tickRateString = String.fromFloat config.tickLoopInterval
+      , rentString = String.fromFloat config.businessRent
       }
     , getRandomNumber
     )
@@ -135,9 +141,12 @@ init flags =
 changeConfig : Int -> Model -> Model
 changeConfig k model =
     let
+        configuration : EngineData.Config
         configuration =
-            List.Extra.getAt k EngineData.configurationList |> Maybe.withDefault EngineData.config1
+            List.Extra.getAt k EngineData.configurationList
+                |> Maybe.withDefault EngineData.config1
 
+        -- |> updateParametersInConfig model
         seed =
             case model.randomAtmosphericInt of
                 Nothing ->
@@ -146,15 +155,19 @@ changeConfig k model =
                 Just s ->
                     s
 
-        state =
+        newState =
             State.configure configuration seed
+
+        _ =
+            Debug.log "CCR" newState.config.maximumCCRatio
     in
     { model
         | configurationString = String.fromInt k
         , configurationIndex = k
         , configuration = configuration
-        , state = State.configure configuration seed
+        , state = newState
     }
+        |> updateParameters
 
 
 subscriptions model =
@@ -259,18 +272,12 @@ update msg model =
                     ( { model | runState = Paused }, Cmd.none )
 
                 End ->
-                    --( { model | runState = End }, Cmd.none )
-                    let
-                        config =
-                            model.configuration
-                    in
-                    ( { model
-                        | state = State.configure config (model.randomAtmosphericInt |> Maybe.withDefault 400)
-                        , runState = Running
+                    { model
+                        | runState = Running
                         , counter = 0
-                      }
-                    , getRandomNumber
-                    )
+                        , data = []
+                    }
+                        |> withCmd getRandomNumber
 
         CycleRunMode ->
             case model.runMode of
@@ -364,12 +371,19 @@ update msg model =
                             ( model, Cmd.none )
 
                         Just rn ->
-                            ( { model
+                            let
+                                config : EngineData.Config
+                                config =
+                                    updateParametersInConfig model model.state.config
+
+                                newState =
+                                    State.configure config (model.randomAtmosphericInt |> Maybe.withDefault 400)
+                            in
+                            { model
                                 | randomAtmosphericInt = Just rn
-                                , state = State.configure model.configuration rn
-                              }
-                            , Cmd.none
-                            )
+                                , state = State.configure config rn
+                            }
+                                |> withNoCmd
 
                 Err _ ->
                     ( model, Cmd.none )
@@ -379,84 +393,113 @@ update msg model =
 -- HELPER
 
 
-updateCycleLength : String -> Model -> Model
-updateCycleLength str model =
+updateParametersInConfig : Model -> EngineData.Config -> EngineData.Config
+updateParametersInConfig model configuration =
+    configuration
+        |> updateCycleLengthInConfig (String.fromInt model.state.config.cycleLength)
+        |> updateTickRateInConfig (String.fromFloat model.state.config.tickLoopInterval)
+        |> updateCCRatioInConfig (String.fromFloat model.state.config.tickLoopInterval)
+        |> updateRentInConfig (String.fromFloat model.state.config.businessRent)
+
+
+updateParameters : Model -> Model
+updateParameters model =
+    model
+        |> updateCycleLength (String.fromInt model.state.config.cycleLength)
+        |> updateTickRate (String.fromFloat model.state.config.tickLoopInterval)
+        |> updateCCRatio (String.fromFloat model.state.config.maximumCCRatio)
+        |> updateRent (String.fromFloat model.state.config.businessRent)
+
+
+updateCycleLengthInConfig : String -> EngineData.Config -> EngineData.Config
+updateCycleLengthInConfig str config =
     case String.toInt str of
         Nothing ->
-            { model | cycleLengthString = str }
+            config
 
         Just cycleLength_ ->
-            let
-                oldConfig =
-                    model.state.config
+            { config | cycleLength = cycleLength_ }
 
-                newConfig =
-                    { oldConfig | cycleLength = cycleLength_ }
 
-                newState =
-                    State.updateConfig newConfig model.state
-            in
-            { model | cycleLengthString = str, state = newState }
+updateCycleLength : String -> Model -> Model
+updateCycleLength str model =
+    let
+        newConfig =
+            updateCycleLengthInConfig str model.state.config
+
+        newState =
+            State.updateConfig newConfig model.state
+    in
+    { model | cycleLengthString = str, state = newState }
+
+
+updateTickRateInConfig : String -> EngineData.Config -> EngineData.Config
+updateTickRateInConfig str config =
+    case String.toFloat str of
+        Nothing ->
+            config
+
+        Just tickRate_ ->
+            { config | tickLoopInterval = tickRate_ }
 
 
 updateTickRate : String -> Model -> Model
 updateTickRate str model =
+    let
+        newConfig =
+            updateTickRateInConfig str model.state.config
+
+        newState =
+            State.updateConfig newConfig model.state
+    in
+    { model | tickRateString = str, state = newState }
+
+
+updateCCRatioInConfig : String -> EngineData.Config -> EngineData.Config
+updateCCRatioInConfig str config =
     case String.toFloat str of
         Nothing ->
-            { model | tickRateString = str }
+            config
 
-        Just tickRate ->
-            let
-                oldConfig =
-                    model.state.config
-
-                newConfig =
-                    { oldConfig | tickLoopInterval = tickRate }
-
-                newState =
-                    State.updateConfig newConfig model.state
-            in
-            { model | tickRateString = str, state = newState }
+        Just ccRatio_ ->
+            { config | maximumCCRatio = Debug.log "ccRatio_" ccRatio_ }
 
 
 updateCCRatio : String -> Model -> Model
 updateCCRatio str model =
+    let
+        _ =
+            Debug.log "updateCCRatio" str
+
+        newConfig =
+            updateCCRatioInConfig str model.state.config
+
+        newState =
+            State.updateConfig newConfig model.state
+    in
+    { model | ccRatioString = Debug.log "CCR@@" str, state = newState }
+
+
+updateRentInConfig : String -> EngineData.Config -> EngineData.Config
+updateRentInConfig str config =
     case String.toFloat str of
         Nothing ->
-            { model | ccRatioString = str }
+            config
 
-        Just ccRatio_ ->
-            let
-                oldConfig =
-                    model.state.config
-
-                newConfig =
-                    { oldConfig | maximumCCRatio = ccRatio_ }
-
-                newState =
-                    State.updateConfig newConfig model.state
-            in
-            { model | ccRatioString = str, state = newState }
+        Just rent_ ->
+            { config | businessRent = rent_ }
 
 
 updateRent : String -> Model -> Model
 updateRent str model =
-    case String.toFloat str of
-        Nothing ->
-            { model | rentString = str }
+    let
+        newConfig =
+            updateRentInConfig str model.state.config
 
-        Just rent_ ->
-            let
-                oldConfig =
-                    model.state.config
-
-                newConfig =
-                    { oldConfig | businessRent = rent_ }
-
-                newState =
-                    State.updateConfig newConfig model.state
-            in
-            { model | rentString = str, state = newState }
+        newState =
+            State.updateConfig newConfig model.state
+    in
+    { model | rentString = str, state = newState }
 
 
 
@@ -513,6 +556,7 @@ controlPanel : Model -> Element Msg
 controlPanel model =
     column Style.controlPanel
         [ el [] (text <| "Control Panel")
+        , el [ paddingXY 0 2 ] (text <| "")
         , cycleLengthInput model
         , tickRateInput model
         , ccRatioInput model
@@ -817,40 +861,28 @@ filterInput model =
         }
 
 
+dashboardInput msg text label =
+    TextField.make msg text label
+        |> TextField.withHeight 30
+        |> TextField.withWidth 50
+        |> TextField.withLabelWidth 70
+        |> TextField.toElement
+
+
 cycleLengthInput model =
-    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
-        { onChange = AcceptCycleLength
-        , text = model.cycleLengthString
-        , placeholder = Nothing
-        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Cycle ")
-        }
+    dashboardInput AcceptCycleLength model.cycleLengthString "Cycle"
 
 
 tickRateInput model =
-    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
-        { onChange = AcceptTickRate
-        , text = model.tickRateString
-        , placeholder = Nothing
-        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Rate ")
-        }
+    dashboardInput AcceptTickRate model.tickRateString "Rate"
 
 
 ccRatioInput model =
-    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
-        { onChange = AcceptCCRatio
-        , text = model.ccRatioString
-        , placeholder = Nothing
-        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "CC Ratio ")
-        }
+    dashboardInput AcceptCCRatio model.ccRatioString "CC Ratio"
 
 
 rentInput model =
-    Input.text [ width (px 50), height (px 30), paddingEach { top = 8, bottom = 0, left = 4, right = 0 } ]
-        { onChange = AcceptRentString
-        , text = model.rentString
-        , placeholder = Nothing
-        , label = Input.labelLeft [ centerY, width (px 70) ] (text <| "Rent ")
-        }
+    dashboardInput AcceptRentString model.rentString "Rent"
 
 
 incrementModelButton model =

@@ -216,7 +216,7 @@ config1 =
 config2 : Config
 config2 =
     { config1
-        | title = "Usef CC Earnings"
+        | title = "Use CC Earnings"
         , subtitle = "Somewhat more interesting"
         , ccEarnings = CCEarningsON
         , maximumCCRatio = 0.5

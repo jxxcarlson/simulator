@@ -5579,7 +5579,7 @@ var $author$project$EngineData$config1 = {
 var $author$project$EngineData$CCEarningsON = {$: 'CCEarningsON'};
 var $author$project$EngineData$config2 = _Utils_update(
 	$author$project$EngineData$config1,
-	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.5, subtitle: 'Somewhat more interesting', title: 'Usef CC Earnings'});
+	{ccEarnings: $author$project$EngineData$CCEarningsON, maximumCCRatio: 0.5, subtitle: 'Somewhat more interesting', title: 'Use CC Earnings'});
 var $author$project$EngineData$configurationList = _List_fromArray(
 	[$author$project$EngineData$config1, $author$project$EngineData$config2]);
 var $author$project$Entity$BusinessCharacteristics = function (a) {
@@ -6198,6 +6198,7 @@ var $author$project$State$configure = F2(
 								config.numberOfHouseholds,
 								A3($author$project$State$configureWithGivenSeed, config, seed, $author$project$State$initialState)))))));
 	});
+var $elm$core$String$fromFloat = _String_fromNumber;
 var $elm$core$List$drop = F2(
 	function (n, list) {
 		drop:
@@ -7032,29 +7033,30 @@ var $elm$core$Maybe$withDefault = F2(
 		}
 	});
 var $author$project$Main$init = function (flags) {
+	var config = A2(
+		$elm$core$Maybe$withDefault,
+		$author$project$EngineData$config1,
+		A2($elm_community$list_extra$List$Extra$getAt, 0, $author$project$EngineData$configurationList));
 	return _Utils_Tuple2(
 		{
 			batchJobState: $author$project$Main$NoBatch,
-			ccRatioString: '',
-			configuration: A2(
-				$elm$core$Maybe$withDefault,
-				$author$project$EngineData$config1,
-				A2($elm_community$list_extra$List$Extra$getAt, 0, $author$project$EngineData$configurationList)),
+			ccRatioString: $elm$core$String$fromFloat(config.maximumCCRatio),
+			configuration: config,
 			configurationIndex: 0,
 			configurationList: $author$project$EngineData$configurationList,
 			configurationString: '1',
 			counter: 0,
-			cycleLengthString: '',
+			cycleLengthString: $elm$core$String$fromInt(config.cycleLength),
 			data: _List_Nil,
 			filterString: '',
 			input: 'App started',
 			output: 'App started',
 			randomAtmosphericInt: $elm$core$Maybe$Nothing,
-			rentString: '',
+			rentString: $elm$core$String$fromFloat(config.businessRent),
 			runMode: $author$project$Main$Single,
 			runState: $author$project$Main$Paused,
-			state: A2($author$project$State$configure, $author$project$EngineData$config1, 400),
-			tickRateString: '',
+			state: A2($author$project$State$configure, config, 400),
+			tickRateString: $elm$core$String$fromFloat(config.tickLoopInterval),
 			trialsToRun: 5
 		},
 		$author$project$Main$getRandomNumber);
@@ -7342,14 +7344,123 @@ var $author$project$Main$InTrial = function (a) {
 	return {$: 'InTrial', a: a};
 };
 var $author$project$Main$Running = {$: 'Running'};
+var $elm$core$Debug$log = _Debug_log;
+var $elm$core$String$toFloat = _String_toFloat;
+var $author$project$Main$updateCCRatioInConfig = F2(
+	function (str, config) {
+		var _v0 = $elm$core$String$toFloat(str);
+		if (_v0.$ === 'Nothing') {
+			return config;
+		} else {
+			var ccRatio_ = _v0.a;
+			return _Utils_update(
+				config,
+				{
+					maximumCCRatio: A2($elm$core$Debug$log, 'ccRatio_', ccRatio_)
+				});
+		}
+	});
+var $author$project$State$updateConfig = F2(
+	function (config, state) {
+		return _Utils_update(
+			state,
+			{config: config});
+	});
+var $author$project$Main$updateCCRatio = F2(
+	function (str, model) {
+		var newConfig = A2($author$project$Main$updateCCRatioInConfig, str, model.state.config);
+		var newState = A2($author$project$State$updateConfig, newConfig, model.state);
+		var _v0 = A2($elm$core$Debug$log, 'updateCCRatio', str);
+		return _Utils_update(
+			model,
+			{
+				ccRatioString: A2($elm$core$Debug$log, 'CCR@@', str),
+				state: newState
+			});
+	});
+var $author$project$Main$updateCycleLengthInConfig = F2(
+	function (str, config) {
+		var _v0 = $elm$core$String$toInt(str);
+		if (_v0.$ === 'Nothing') {
+			return config;
+		} else {
+			var cycleLength_ = _v0.a;
+			return _Utils_update(
+				config,
+				{cycleLength: cycleLength_});
+		}
+	});
+var $author$project$Main$updateCycleLength = F2(
+	function (str, model) {
+		var newConfig = A2($author$project$Main$updateCycleLengthInConfig, str, model.state.config);
+		var newState = A2($author$project$State$updateConfig, newConfig, model.state);
+		return _Utils_update(
+			model,
+			{cycleLengthString: str, state: newState});
+	});
+var $author$project$Main$updateRentInConfig = F2(
+	function (str, config) {
+		var _v0 = $elm$core$String$toFloat(str);
+		if (_v0.$ === 'Nothing') {
+			return config;
+		} else {
+			var rent_ = _v0.a;
+			return _Utils_update(
+				config,
+				{businessRent: rent_});
+		}
+	});
+var $author$project$Main$updateRent = F2(
+	function (str, model) {
+		var newConfig = A2($author$project$Main$updateRentInConfig, str, model.state.config);
+		var newState = A2($author$project$State$updateConfig, newConfig, model.state);
+		return _Utils_update(
+			model,
+			{rentString: str, state: newState});
+	});
+var $author$project$Main$updateTickRateInConfig = F2(
+	function (str, config) {
+		var _v0 = $elm$core$String$toFloat(str);
+		if (_v0.$ === 'Nothing') {
+			return config;
+		} else {
+			var tickRate_ = _v0.a;
+			return _Utils_update(
+				config,
+				{tickLoopInterval: tickRate_});
+		}
+	});
+var $author$project$Main$updateTickRate = F2(
+	function (str, model) {
+		var newConfig = A2($author$project$Main$updateTickRateInConfig, str, model.state.config);
+		var newState = A2($author$project$State$updateConfig, newConfig, model.state);
+		return _Utils_update(
+			model,
+			{state: newState, tickRateString: str});
+	});
+var $author$project$Main$updateParameters = function (model) {
+	return A2(
+		$author$project$Main$updateRent,
+		$elm$core$String$fromFloat(model.state.config.businessRent),
+		A2(
+			$author$project$Main$updateCCRatio,
+			$elm$core$String$fromFloat(model.state.config.maximumCCRatio),
+			A2(
+				$author$project$Main$updateTickRate,
+				$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+				A2(
+					$author$project$Main$updateCycleLength,
+					$elm$core$String$fromInt(model.state.config.cycleLength),
+					model))));
+};
 var $author$project$Main$changeConfig = F2(
 	function (k, model) {
 		var seed = function () {
-			var _v0 = model.randomAtmosphericInt;
-			if (_v0.$ === 'Nothing') {
+			var _v1 = model.randomAtmosphericInt;
+			if (_v1.$ === 'Nothing') {
 				return 400;
 			} else {
-				var s = _v0.a;
+				var s = _v1.a;
 				return s;
 			}
 		}();
@@ -7357,15 +7468,17 @@ var $author$project$Main$changeConfig = F2(
 			$elm$core$Maybe$withDefault,
 			$author$project$EngineData$config1,
 			A2($elm_community$list_extra$List$Extra$getAt, k, $author$project$EngineData$configurationList));
-		var state = A2($author$project$State$configure, configuration, seed);
-		return _Utils_update(
-			model,
-			{
-				configuration: configuration,
-				configurationIndex: k,
-				configurationString: $elm$core$String$fromInt(k),
-				state: A2($author$project$State$configure, configuration, seed)
-			});
+		var newState = A2($author$project$State$configure, configuration, seed);
+		var _v0 = A2($elm$core$Debug$log, 'CCR', newState.config.maximumCCRatio);
+		return $author$project$Main$updateParameters(
+			_Utils_update(
+				model,
+				{
+					configuration: configuration,
+					configurationIndex: k,
+					configurationString: $elm$core$String$fromInt(k),
+					state: newState
+				}));
 	});
 var $author$project$State$lostSales = function (log) {
 	return $elm$core$List$sum(
@@ -7635,7 +7748,6 @@ var $author$project$Report$fiatBalanceOfEntity = F2(
 				bt,
 				$author$project$Entity$getFiatAccount(entity)));
 	});
-var $elm$core$String$fromFloat = _String_fromNumber;
 var $author$project$Action$getLogString = F3(
 	function (purchaseAmt_, business_, newBusiness_) {
 		var oldFiatBalance = $elm$core$String$fromFloat(
@@ -8692,88 +8804,25 @@ var $author$project$Engine$nextState = F3(
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$String$trim = _String_trim;
-var $elm$core$String$toFloat = _String_toFloat;
-var $author$project$State$updateConfig = F2(
-	function (config, state) {
-		return _Utils_update(
-			state,
-			{config: config});
+var $author$project$Main$updateParametersInConfig = F2(
+	function (model, configuration) {
+		return A2(
+			$author$project$Main$updateRentInConfig,
+			$elm$core$String$fromFloat(model.state.config.businessRent),
+			A2(
+				$author$project$Main$updateCCRatioInConfig,
+				$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+				A2(
+					$author$project$Main$updateTickRateInConfig,
+					$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+					A2(
+						$author$project$Main$updateCycleLengthInConfig,
+						$elm$core$String$fromInt(model.state.config.cycleLength),
+						configuration))));
 	});
-var $author$project$Main$updateCCRatio = F2(
-	function (str, model) {
-		var _v0 = $elm$core$String$toFloat(str);
-		if (_v0.$ === 'Nothing') {
-			return _Utils_update(
-				model,
-				{ccRatioString: str});
-		} else {
-			var ccRatio_ = _v0.a;
-			var oldConfig = model.state.config;
-			var newConfig = _Utils_update(
-				oldConfig,
-				{maximumCCRatio: ccRatio_});
-			var newState = A2($author$project$State$updateConfig, newConfig, model.state);
-			return _Utils_update(
-				model,
-				{ccRatioString: str, state: newState});
-		}
-	});
-var $author$project$Main$updateCycleLength = F2(
-	function (str, model) {
-		var _v0 = $elm$core$String$toInt(str);
-		if (_v0.$ === 'Nothing') {
-			return _Utils_update(
-				model,
-				{cycleLengthString: str});
-		} else {
-			var cycleLength_ = _v0.a;
-			var oldConfig = model.state.config;
-			var newConfig = _Utils_update(
-				oldConfig,
-				{cycleLength: cycleLength_});
-			var newState = A2($author$project$State$updateConfig, newConfig, model.state);
-			return _Utils_update(
-				model,
-				{cycleLengthString: str, state: newState});
-		}
-	});
-var $author$project$Main$updateRent = F2(
-	function (str, model) {
-		var _v0 = $elm$core$String$toFloat(str);
-		if (_v0.$ === 'Nothing') {
-			return _Utils_update(
-				model,
-				{rentString: str});
-		} else {
-			var rent_ = _v0.a;
-			var oldConfig = model.state.config;
-			var newConfig = _Utils_update(
-				oldConfig,
-				{businessRent: rent_});
-			var newState = A2($author$project$State$updateConfig, newConfig, model.state);
-			return _Utils_update(
-				model,
-				{rentString: str, state: newState});
-		}
-	});
-var $author$project$Main$updateTickRate = F2(
-	function (str, model) {
-		var _v0 = $elm$core$String$toFloat(str);
-		if (_v0.$ === 'Nothing') {
-			return _Utils_update(
-				model,
-				{tickRateString: str});
-		} else {
-			var tickRate = _v0.a;
-			var oldConfig = model.state.config;
-			var newConfig = _Utils_update(
-				oldConfig,
-				{tickLoopInterval: tickRate});
-			var newState = A2($author$project$State$updateConfig, newConfig, model.state);
-			return _Utils_update(
-				model,
-				{state: newState, tickRateString: str});
-		}
+var $Janiczek$cmd_extra$Cmd$Extra$withCmd = F2(
+	function (cmd, model) {
+		return _Utils_Tuple2(model, cmd);
 	});
 var $Janiczek$cmd_extra$Cmd$Extra$withNoCmd = function (model) {
 	return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -8903,19 +8952,12 @@ var $author$project$Main$update = F2(
 								{runState: $author$project$Main$Paused}),
 							$elm$core$Platform$Cmd$none);
 					default:
-						var config = model.configuration;
-						return _Utils_Tuple2(
+						return A2(
+							$Janiczek$cmd_extra$Cmd$Extra$withCmd,
+							$author$project$Main$getRandomNumber,
 							_Utils_update(
 								model,
-								{
-									counter: 0,
-									runState: $author$project$Main$Running,
-									state: A2(
-										$author$project$State$configure,
-										config,
-										A2($elm$core$Maybe$withDefault, 400, model.randomAtmosphericInt))
-								}),
-							$author$project$Main$getRandomNumber);
+								{counter: 0, data: _List_Nil, runState: $author$project$Main$Running}));
 				}
 			case 'CycleRunMode':
 				var _v13 = model.runMode;
@@ -9022,14 +9064,18 @@ var $author$project$Main$update = F2(
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
 						var rn = _v16.a;
-						return _Utils_Tuple2(
+						var config = A2($author$project$Main$updateParametersInConfig, model, model.state.config);
+						var newState = A2(
+							$author$project$State$configure,
+							config,
+							A2($elm$core$Maybe$withDefault, 400, model.randomAtmosphericInt));
+						return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 							_Utils_update(
 								model,
 								{
 									randomAtmosphericInt: $elm$core$Maybe$Just(rn),
-									state: A2($author$project$State$configure, model.configuration, rn)
-								}),
-							$elm$core$Platform$Cmd$none);
+									state: A2($author$project$State$configure, config, rn)
+								}));
 					}
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
@@ -14663,55 +14709,62 @@ var $mdgriffith$elm_ui$Element$column = F2(
 var $author$project$Main$AcceptCCRatio = function (a) {
 	return {$: 'AcceptCCRatio', a: a};
 };
-var $mdgriffith$elm_ui$Internal$Model$AlignY = function (a) {
-	return {$: 'AlignY', a: a};
+var $author$project$Widget$TextField$TextField = F4(
+	function (a, b, c, d) {
+		return {$: 'TextField', a: a, b: b, c: c, d: d};
+	});
+var $author$project$Widget$TextField$Primary = {$: 'Primary'};
+var $author$project$Widget$TextField$Unbounded = {$: 'Unbounded'};
+var $mdgriffith$elm_ui$Element$rgb = F3(
+	function (r, g, b) {
+		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, r, g, b, 1);
+	});
+var $author$project$Widget$Style$gray = function (g) {
+	return A3($mdgriffith$elm_ui$Element$rgb, g, g, g);
 };
-var $mdgriffith$elm_ui$Internal$Model$CenterY = {$: 'CenterY'};
-var $mdgriffith$elm_ui$Element$centerY = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$CenterY);
+var $author$project$Widget$Style$darkGray = $author$project$Widget$Style$gray(0.4);
+var $author$project$Widget$Style$white = $author$project$Widget$Style$gray(0.9);
+var $author$project$Widget$TextField$defaultOptions = {backgroundColor: $author$project$Widget$Style$darkGray, fontColor: $author$project$Widget$Style$white, height: 40, labelWidth: $author$project$Widget$TextField$Unbounded, role: $author$project$Widget$TextField$Primary, width: 100};
+var $author$project$Widget$TextField$make = F3(
+	function (msg, text, label) {
+		return A4($author$project$Widget$TextField$TextField, $author$project$Widget$TextField$defaultOptions, msg, text, label);
+	});
 var $mdgriffith$elm_ui$Element$Input$Label = F3(
 	function (a, b, c) {
 		return {$: 'Label', a: a, b: b, c: c};
 	});
 var $mdgriffith$elm_ui$Element$Input$OnLeft = {$: 'OnLeft'};
 var $mdgriffith$elm_ui$Element$Input$labelLeft = $mdgriffith$elm_ui$Element$Input$Label($mdgriffith$elm_ui$Element$Input$OnLeft);
-var $mdgriffith$elm_ui$Internal$Model$PaddingStyle = F5(
-	function (a, b, c, d, e) {
-		return {$: 'PaddingStyle', a: a, b: b, c: c, d: d, e: e};
+var $mdgriffith$elm_ui$Internal$Model$MoveY = function (a) {
+	return {$: 'MoveY', a: a};
+};
+var $mdgriffith$elm_ui$Internal$Model$TransformComponent = F2(
+	function (a, b) {
+		return {$: 'TransformComponent', a: a, b: b};
 	});
-var $mdgriffith$elm_ui$Internal$Flag$padding = $mdgriffith$elm_ui$Internal$Flag$flag(2);
-var $mdgriffith$elm_ui$Internal$Model$paddingName = F4(
-	function (top, right, bottom, left) {
-		return 'pad-' + ($elm$core$String$fromInt(top) + ('-' + ($elm$core$String$fromInt(right) + ('-' + ($elm$core$String$fromInt(bottom) + ('-' + $elm$core$String$fromInt(left)))))));
-	});
-var $mdgriffith$elm_ui$Element$paddingEach = function (_v0) {
-	var top = _v0.top;
-	var right = _v0.right;
-	var bottom = _v0.bottom;
-	var left = _v0.left;
-	return (_Utils_eq(top, right) && (_Utils_eq(top, bottom) && _Utils_eq(top, left))) ? A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$padding,
-		A5(
-			$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
-			'p-' + $elm$core$String$fromInt(top),
-			top,
-			top,
-			top,
-			top)) : A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$padding,
-		A5(
-			$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
-			A4($mdgriffith$elm_ui$Internal$Model$paddingName, top, right, bottom, left),
-			top,
-			right,
-			bottom,
-			left));
+var $mdgriffith$elm_ui$Internal$Flag$moveY = $mdgriffith$elm_ui$Internal$Flag$flag(26);
+var $mdgriffith$elm_ui$Element$moveDown = function (y) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$TransformComponent,
+		$mdgriffith$elm_ui$Internal$Flag$moveY,
+		$mdgriffith$elm_ui$Internal$Model$MoveY(y));
+};
+var $mdgriffith$elm_ui$Element$moveUp = function (y) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$TransformComponent,
+		$mdgriffith$elm_ui$Internal$Flag$moveY,
+		$mdgriffith$elm_ui$Internal$Model$MoveY(-y));
 };
 var $mdgriffith$elm_ui$Internal$Model$Px = function (a) {
 	return {$: 'Px', a: a};
 };
 var $mdgriffith$elm_ui$Element$px = $mdgriffith$elm_ui$Internal$Model$Px;
+var $mdgriffith$elm_ui$Element$Font$size = function (i) {
+	return A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$fontSize,
+		$mdgriffith$elm_ui$Internal$Model$FontSize(i));
+};
 var $mdgriffith$elm_ui$Internal$Model$Text = function (a) {
 	return {$: 'Text', a: a};
 };
@@ -14819,20 +14872,6 @@ var $mdgriffith$elm_ui$Element$createNearby = F2(
 var $mdgriffith$elm_ui$Element$behindContent = function (element) {
 	return A2($mdgriffith$elm_ui$Element$createNearby, $mdgriffith$elm_ui$Internal$Model$Behind, element);
 };
-var $mdgriffith$elm_ui$Internal$Model$MoveY = function (a) {
-	return {$: 'MoveY', a: a};
-};
-var $mdgriffith$elm_ui$Internal$Model$TransformComponent = F2(
-	function (a, b) {
-		return {$: 'TransformComponent', a: a, b: b};
-	});
-var $mdgriffith$elm_ui$Internal$Flag$moveY = $mdgriffith$elm_ui$Internal$Flag$flag(26);
-var $mdgriffith$elm_ui$Element$moveUp = function (y) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$TransformComponent,
-		$mdgriffith$elm_ui$Internal$Flag$moveY,
-		$mdgriffith$elm_ui$Internal$Model$MoveY(-y));
-};
 var $mdgriffith$elm_ui$Element$Input$calcMoveToCompensateForPadding = function (attrs) {
 	var gatherSpacing = F2(
 		function (attr, found) {
@@ -14882,11 +14921,12 @@ var $mdgriffith$elm_ui$Element$Border$color = function (clr) {
 			'border-color',
 			clr));
 };
-var $mdgriffith$elm_ui$Element$rgb = F3(
-	function (r, g, b) {
-		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, r, g, b, 1);
-	});
 var $mdgriffith$elm_ui$Element$Input$darkGrey = A3($mdgriffith$elm_ui$Element$rgb, 186 / 255, 189 / 255, 182 / 255);
+var $mdgriffith$elm_ui$Internal$Model$PaddingStyle = F5(
+	function (a, b, c, d, e) {
+		return {$: 'PaddingStyle', a: a, b: b, c: c, d: d, e: e};
+	});
+var $mdgriffith$elm_ui$Internal$Flag$padding = $mdgriffith$elm_ui$Internal$Flag$flag(2);
 var $mdgriffith$elm_ui$Element$paddingXY = F2(
 	function (x, y) {
 		return _Utils_eq(x, y) ? A2(
@@ -15086,6 +15126,35 @@ var $elm$html$Html$Events$onInput = function (tagger) {
 			$elm$json$Json$Decode$map,
 			$elm$html$Html$Events$alwaysStop,
 			A2($elm$json$Json$Decode$map, tagger, $elm$html$Html$Events$targetValue)));
+};
+var $mdgriffith$elm_ui$Internal$Model$paddingName = F4(
+	function (top, right, bottom, left) {
+		return 'pad-' + ($elm$core$String$fromInt(top) + ('-' + ($elm$core$String$fromInt(right) + ('-' + ($elm$core$String$fromInt(bottom) + ('-' + $elm$core$String$fromInt(left)))))));
+	});
+var $mdgriffith$elm_ui$Element$paddingEach = function (_v0) {
+	var top = _v0.top;
+	var right = _v0.right;
+	var bottom = _v0.bottom;
+	var left = _v0.left;
+	return (_Utils_eq(top, right) && (_Utils_eq(top, bottom) && _Utils_eq(top, left))) ? A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$padding,
+		A5(
+			$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
+			'p-' + $elm$core$String$fromInt(top),
+			top,
+			top,
+			top,
+			top)) : A2(
+		$mdgriffith$elm_ui$Internal$Model$StyleClass,
+		$mdgriffith$elm_ui$Internal$Flag$padding,
+		A5(
+			$mdgriffith$elm_ui$Internal$Model$PaddingStyle,
+			A4($mdgriffith$elm_ui$Internal$Model$paddingName, top, right, bottom, left),
+			top,
+			right,
+			bottom,
+			left));
 };
 var $mdgriffith$elm_ui$Element$htmlAttribute = $mdgriffith$elm_ui$Internal$Model$Attr;
 var $mdgriffith$elm_ui$Element$Input$isFill = function (len) {
@@ -15690,32 +15759,115 @@ var $mdgriffith$elm_ui$Element$Input$text = $mdgriffith$elm_ui$Element$Input$tex
 		spellchecked: false,
 		type_: $mdgriffith$elm_ui$Element$Input$TextInputNode('text')
 	});
-var $author$project$Main$ccRatioInput = function (model) {
+var $author$project$Widget$TextField$toElement = function (_v0) {
+	var options = _v0.a;
+	var msg = _v0.b;
+	var text = _v0.c;
+	var label = _v0.d;
+	var baseLabelOptions = _List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$moveDown(8)
+		]);
+	var labelOptions = function () {
+		var _v1 = options.labelWidth;
+		if (_v1.$ === 'Unbounded') {
+			return baseLabelOptions;
+		} else {
+			var k = _v1.a;
+			return A2(
+				$elm$core$List$cons,
+				$mdgriffith$elm_ui$Element$width(
+					$mdgriffith$elm_ui$Element$px(k)),
+				baseLabelOptions);
+		}
+	}();
 	return A2(
 		$mdgriffith$elm_ui$Element$Input$text,
 		_List_fromArray(
 			[
+				$mdgriffith$elm_ui$Element$moveUp(3),
 				$mdgriffith$elm_ui$Element$width(
-				$mdgriffith$elm_ui$Element$px(50)),
+				$mdgriffith$elm_ui$Element$px(options.width)),
 				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$px(30)),
-				$mdgriffith$elm_ui$Element$paddingEach(
-				{bottom: 0, left: 4, right: 0, top: 8})
+				$mdgriffith$elm_ui$Element$px(options.height)),
+				$mdgriffith$elm_ui$Element$Font$size(14)
 			]),
 		{
 			label: A2(
 				$mdgriffith$elm_ui$Element$Input$labelLeft,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$centerY,
-						$mdgriffith$elm_ui$Element$width(
-						$mdgriffith$elm_ui$Element$px(70))
-					]),
-				$mdgriffith$elm_ui$Element$text('CC Ratio ')),
-			onChange: $author$project$Main$AcceptCCRatio,
+				labelOptions,
+				$mdgriffith$elm_ui$Element$text(label)),
+			onChange: msg,
 			placeholder: $elm$core$Maybe$Nothing,
-			text: model.ccRatioString
+			text: text
 		});
+};
+var $author$project$Widget$TextField$withHeight = F2(
+	function (height, _v0) {
+		var options = _v0.a;
+		var msg = _v0.b;
+		var text = _v0.c;
+		var label = _v0.d;
+		return A4(
+			$author$project$Widget$TextField$TextField,
+			_Utils_update(
+				options,
+				{height: height}),
+			msg,
+			text,
+			label);
+	});
+var $author$project$Widget$TextField$Bounded = function (a) {
+	return {$: 'Bounded', a: a};
+};
+var $author$project$Widget$TextField$withLabelWidth = F2(
+	function (labelWidth, _v0) {
+		var options = _v0.a;
+		var msg = _v0.b;
+		var text = _v0.c;
+		var label = _v0.d;
+		return A4(
+			$author$project$Widget$TextField$TextField,
+			_Utils_update(
+				options,
+				{
+					labelWidth: $author$project$Widget$TextField$Bounded(labelWidth)
+				}),
+			msg,
+			text,
+			label);
+	});
+var $author$project$Widget$TextField$withWidth = F2(
+	function (width, _v0) {
+		var options = _v0.a;
+		var msg = _v0.b;
+		var text = _v0.c;
+		var label = _v0.d;
+		return A4(
+			$author$project$Widget$TextField$TextField,
+			_Utils_update(
+				options,
+				{width: width}),
+			msg,
+			text,
+			label);
+	});
+var $author$project$Main$dashboardInput = F3(
+	function (msg, text, label) {
+		return $author$project$Widget$TextField$toElement(
+			A2(
+				$author$project$Widget$TextField$withLabelWidth,
+				70,
+				A2(
+					$author$project$Widget$TextField$withWidth,
+					50,
+					A2(
+						$author$project$Widget$TextField$withHeight,
+						30,
+						A3($author$project$Widget$TextField$make, msg, text, label)))));
+	});
+var $author$project$Main$ccRatioInput = function (model) {
+	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptCCRatio, model.ccRatioString, 'CC Ratio');
 };
 var $mdgriffith$elm_ui$Element$Font$family = function (families) {
 	return A2(
@@ -15730,12 +15882,6 @@ var $mdgriffith$elm_ui$Element$rgb255 = F3(
 	function (red, green, blue) {
 		return A4($mdgriffith$elm_ui$Internal$Model$Rgba, red / 255, green / 255, blue / 255, 1);
 	});
-var $mdgriffith$elm_ui$Element$Font$size = function (i) {
-	return A2(
-		$mdgriffith$elm_ui$Internal$Model$StyleClass,
-		$mdgriffith$elm_ui$Internal$Flag$fontSize,
-		$mdgriffith$elm_ui$Internal$Model$FontSize(i));
-};
 var $mdgriffith$elm_ui$Element$Font$typeface = $mdgriffith$elm_ui$Internal$Model$Typeface;
 var $author$project$Style$controlPanel = _List_fromArray(
 	[
@@ -15758,91 +15904,19 @@ var $author$project$Main$AcceptCycleLength = function (a) {
 	return {$: 'AcceptCycleLength', a: a};
 };
 var $author$project$Main$cycleLengthInput = function (model) {
-	return A2(
-		$mdgriffith$elm_ui$Element$Input$text,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width(
-				$mdgriffith$elm_ui$Element$px(50)),
-				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$px(30)),
-				$mdgriffith$elm_ui$Element$paddingEach(
-				{bottom: 0, left: 4, right: 0, top: 8})
-			]),
-		{
-			label: A2(
-				$mdgriffith$elm_ui$Element$Input$labelLeft,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$centerY,
-						$mdgriffith$elm_ui$Element$width(
-						$mdgriffith$elm_ui$Element$px(70))
-					]),
-				$mdgriffith$elm_ui$Element$text('Cycle ')),
-			onChange: $author$project$Main$AcceptCycleLength,
-			placeholder: $elm$core$Maybe$Nothing,
-			text: model.cycleLengthString
-		});
+	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptCycleLength, model.cycleLengthString, 'Cycle');
 };
 var $author$project$Main$AcceptRentString = function (a) {
 	return {$: 'AcceptRentString', a: a};
 };
 var $author$project$Main$rentInput = function (model) {
-	return A2(
-		$mdgriffith$elm_ui$Element$Input$text,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width(
-				$mdgriffith$elm_ui$Element$px(50)),
-				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$px(30)),
-				$mdgriffith$elm_ui$Element$paddingEach(
-				{bottom: 0, left: 4, right: 0, top: 8})
-			]),
-		{
-			label: A2(
-				$mdgriffith$elm_ui$Element$Input$labelLeft,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$centerY,
-						$mdgriffith$elm_ui$Element$width(
-						$mdgriffith$elm_ui$Element$px(70))
-					]),
-				$mdgriffith$elm_ui$Element$text('Rent ')),
-			onChange: $author$project$Main$AcceptRentString,
-			placeholder: $elm$core$Maybe$Nothing,
-			text: model.rentString
-		});
+	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptRentString, model.rentString, 'Rent');
 };
 var $author$project$Main$AcceptTickRate = function (a) {
 	return {$: 'AcceptTickRate', a: a};
 };
 var $author$project$Main$tickRateInput = function (model) {
-	return A2(
-		$mdgriffith$elm_ui$Element$Input$text,
-		_List_fromArray(
-			[
-				$mdgriffith$elm_ui$Element$width(
-				$mdgriffith$elm_ui$Element$px(50)),
-				$mdgriffith$elm_ui$Element$height(
-				$mdgriffith$elm_ui$Element$px(30)),
-				$mdgriffith$elm_ui$Element$paddingEach(
-				{bottom: 0, left: 4, right: 0, top: 8})
-			]),
-		{
-			label: A2(
-				$mdgriffith$elm_ui$Element$Input$labelLeft,
-				_List_fromArray(
-					[
-						$mdgriffith$elm_ui$Element$centerY,
-						$mdgriffith$elm_ui$Element$width(
-						$mdgriffith$elm_ui$Element$px(70))
-					]),
-				$mdgriffith$elm_ui$Element$text('Rate ')),
-			onChange: $author$project$Main$AcceptTickRate,
-			placeholder: $elm$core$Maybe$Nothing,
-			text: model.tickRateString
-		});
+	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptTickRate, model.tickRateString, 'Rate');
 };
 var $author$project$Main$controlPanel = function (model) {
 	return A2(
@@ -15854,6 +15928,13 @@ var $author$project$Main$controlPanel = function (model) {
 				$mdgriffith$elm_ui$Element$el,
 				_List_Nil,
 				$mdgriffith$elm_ui$Element$text('Control Panel')),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_fromArray(
+					[
+						A2($mdgriffith$elm_ui$Element$paddingXY, 0, 2)
+					]),
+				$mdgriffith$elm_ui$Element$text('')),
 				$author$project$Main$cycleLengthInput(model),
 				$author$project$Main$tickRateInput(model),
 				$author$project$Main$ccRatioInput(model),
@@ -16475,6 +16556,77 @@ var $author$project$Main$dashboard = function (model) {
 				$author$project$Main$displayStatistics(model)
 			]));
 };
+var $author$project$Main$booleanOr = function (list) {
+	return A3($elm$core$List$foldl, $elm$core$Basics$or, false, list);
+};
+var $author$project$Main$disjunctiveFilter = F3(
+	function (filter, list, target) {
+		return $author$project$Main$booleanOr(
+			A2(
+				$elm$core$List$map,
+				filter(target),
+				list));
+	});
+var $author$project$Main$conjunctiveFilter = F3(
+	function (filter, list, target) {
+		return !A3($author$project$Main$disjunctiveFilter, filter, list, target);
+	});
+var $author$project$Style$log = _List_fromArray(
+	[
+		$mdgriffith$elm_ui$Element$Background$color(
+		A3($mdgriffith$elm_ui$Element$rgb255, 200, 200, 200)),
+		A2($mdgriffith$elm_ui$Element$paddingXY, 12, 18),
+		$mdgriffith$elm_ui$Element$width(
+		$mdgriffith$elm_ui$Element$px(330)),
+		$mdgriffith$elm_ui$Element$height(
+		$mdgriffith$elm_ui$Element$px(570)),
+		$mdgriffith$elm_ui$Element$spacing(3),
+		$mdgriffith$elm_ui$Element$Font$size(14),
+		$mdgriffith$elm_ui$Element$Font$family(
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$Font$typeface('Courier')
+			])),
+		$mdgriffith$elm_ui$Element$scrollbarY
+	]);
+var $author$project$Main$displayLog = function (model) {
+	var filteredLog = function () {
+		var _v0 = model.filterString === '';
+		if (_v0) {
+			return model.state.log;
+		} else {
+			var badStrings = A2(
+				$elm$core$List$map,
+				$elm$core$String$trim,
+				$elm$core$String$words(model.filterString));
+			var filter = function (item) {
+				return A3(
+					$author$project$Main$conjunctiveFilter,
+					F2(
+						function (target, item_) {
+							return A2($elm$core$String$contains, item_, target);
+						}),
+					badStrings,
+					item);
+			};
+			return A2($elm$core$List$filter, filter, model.state.log);
+		}
+	}();
+	var log = A2(
+		$elm$core$List$cons,
+		'Log',
+		A2($elm$core$List$cons, '--------------------------', filteredLog));
+	var displayItem = function (str) {
+		return A2(
+			$mdgriffith$elm_ui$Element$el,
+			_List_Nil,
+			$mdgriffith$elm_ui$Element$text(str));
+	};
+	return A2(
+		$mdgriffith$elm_ui$Element$column,
+		$author$project$Style$log,
+		A2($elm$core$List$map, displayItem, log));
+};
 var $author$project$Main$CellGrid = function (a) {
 	return {$: 'CellGrid', a: a};
 };
@@ -16829,6 +16981,9 @@ var $author$project$Main$displayState = function (model) {
 					A2($author$project$Engine$render, model.configuration, model.state)))
 			]));
 };
+var $mdgriffith$elm_ui$Internal$Model$AlignY = function (a) {
+	return {$: 'AlignY', a: a};
+};
 var $mdgriffith$elm_ui$Internal$Model$Bottom = {$: 'Bottom'};
 var $mdgriffith$elm_ui$Element$alignBottom = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$Bottom);
 var $mdgriffith$elm_ui$Internal$Model$Left = {$: 'Left'};
@@ -16836,6 +16991,8 @@ var $mdgriffith$elm_ui$Element$alignLeft = $mdgriffith$elm_ui$Internal$Model$Ali
 var $author$project$Main$AcceptFilter = function (a) {
 	return {$: 'AcceptFilter', a: a};
 };
+var $mdgriffith$elm_ui$Internal$Model$CenterY = {$: 'CenterY'};
+var $mdgriffith$elm_ui$Element$centerY = $mdgriffith$elm_ui$Internal$Model$AlignY($mdgriffith$elm_ui$Internal$Model$CenterY);
 var $author$project$Main$filterInput = function (model) {
 	return A2(
 		$mdgriffith$elm_ui$Element$Input$text,
@@ -17168,6 +17325,434 @@ var $author$project$Main$footer = function (model) {
 					]))
 			]));
 };
+var $elm$svg$Svg$Attributes$fontSize = _VirtualDom_attribute('font-size');
+var $jxxcarlson$elm_graph$SimpleGraph$roundTo = F2(
+	function (k, x) {
+		var kk = k;
+		return function (y) {
+			return y / A2($elm$core$Basics$pow, 10.0, kk);
+		}(
+			$elm$core$Basics$round(
+				x * A2($elm$core$Basics$pow, 10.0, kk)));
+	});
+var $elm$svg$Svg$text = $elm$virtual_dom$VirtualDom$text;
+var $elm$svg$Svg$text_ = $elm$svg$Svg$trustedNode('text');
+var $elm$svg$Svg$Attributes$transform = _VirtualDom_attribute('transform');
+var $jxxcarlson$elm_graph$SimpleGraph$bMakeYLabel = F2(
+	function (_v0, y) {
+		var yMax = _v0.a;
+		var graphHeight = _v0.b;
+		var label = $elm$core$String$fromFloat(
+			A2($jxxcarlson$elm_graph$SimpleGraph$roundTo, 1, y));
+		return A2(
+			$elm$svg$Svg$text_,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$transform('translate(0,' + ('-3' + ') scale(1,-1)')),
+					$elm$svg$Svg$Attributes$x('-30'),
+					$elm$svg$Svg$Attributes$y(
+					$elm$core$String$fromFloat(((-y) * graphHeight) / yMax)),
+					$elm$svg$Svg$Attributes$fontSize('9px')
+				]),
+			_List_fromArray(
+				[
+					$elm$svg$Svg$text(label)
+				]));
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$findMap = F2(
+	function (f, list) {
+		findMap:
+		while (true) {
+			if (!list.b) {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var x = list.a;
+				var xs = list.b;
+				var _v1 = f(x);
+				if (_v1.$ === 'Just') {
+					var v = _v1.a;
+					return $elm$core$Maybe$Just(v);
+				} else {
+					var $temp$f = f,
+						$temp$list = xs;
+					f = $temp$f;
+					list = $temp$list;
+					continue findMap;
+				}
+			}
+		}
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$yTickmarks_ = function (option) {
+	if (option.$ === 'YTickmarks') {
+		var k = option.a;
+		return $elm$core$Maybe$Just(k);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$yTickmarks = function (options) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		0,
+		A2($jxxcarlson$elm_graph$SimpleGraph$findMap, $jxxcarlson$elm_graph$SimpleGraph$yTickmarks_, options));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$bMakeYLabels = F2(
+	function (yMax, ga) {
+		var n = $jxxcarlson$elm_graph$SimpleGraph$yTickmarks(ga.options);
+		var _v0 = !n;
+		if (_v0) {
+			return A2($elm$svg$Svg$g, _List_Nil, _List_Nil);
+		} else {
+			return A2(
+				$elm$svg$Svg$g,
+				_List_Nil,
+				A2(
+					$elm$core$List$map,
+					$jxxcarlson$elm_graph$SimpleGraph$bMakeYLabel(
+						_Utils_Tuple2(yMax, ga.graphHeight)),
+					A2(
+						$elm$core$List$map,
+						function (k) {
+							return (k * yMax) / (n - 1);
+						},
+						A2($elm$core$List$range, 0, n - 1))));
+		}
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$barRect = F5(
+	function (color, barWidth, barHeight, x, fraction) {
+		return A2(
+			$elm$svg$Svg$rect,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$width(
+					$elm$core$String$fromFloat(barWidth)),
+					$elm$svg$Svg$Attributes$height(
+					$elm$core$String$fromFloat(fraction * barHeight)),
+					$elm$svg$Svg$Attributes$x(
+					$elm$core$String$fromFloat(x)),
+					$elm$svg$Svg$Attributes$fill(color)
+				]),
+			_List_Nil);
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$scale_ = function (option) {
+	if (option.$ === 'Scale') {
+		var kx = option.a;
+		var ky = option.b;
+		return $elm$core$Maybe$Just(
+			_Utils_Tuple2(kx, ky));
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$scale = function (options) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		_Utils_Tuple2(1.0, 1.0),
+		A2($jxxcarlson$elm_graph$SimpleGraph$findMap, $jxxcarlson$elm_graph$SimpleGraph$scale_, options));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$buildSVGTransformString = function (ga) {
+	var _v0 = $jxxcarlson$elm_graph$SimpleGraph$scale(ga.options);
+	var kx = _v0.a;
+	var ky = _v0.b;
+	var translateX = function () {
+		var _v2 = kx < 0;
+		if (!_v2) {
+			return '0';
+		} else {
+			return $elm$core$String$fromFloat((-ga.graphWidth) + 60);
+		}
+	}();
+	var scaleString = 'scale(' + ($elm$core$String$fromFloat(kx) + (', ' + ($elm$core$String$fromFloat(ky) + ')')));
+	var translateY = function () {
+		var _v1 = ky < 0;
+		if (!_v1) {
+			return '0';
+		} else {
+			return $elm$core$String$fromFloat(-ga.graphHeight);
+		}
+	}();
+	var translateString = 'translate(' + (translateX + (', ' + (translateY + ')')));
+	return scaleString + (' ' + translateString);
+};
+var $elm$svg$Svg$line = $elm$svg$Svg$trustedNode('line');
+var $jxxcarlson$elm_graph$SimpleGraph$lineColor_ = function (option) {
+	if (option.$ === 'Color') {
+		var str = option.a;
+		return $elm$core$Maybe$Just(str);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$lineColor = function (options) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		'rgb(40, 40, 40)',
+		A2($jxxcarlson$elm_graph$SimpleGraph$findMap, $jxxcarlson$elm_graph$SimpleGraph$lineColor_, options));
+};
+var $elm$svg$Svg$Attributes$stroke = _VirtualDom_attribute('stroke');
+var $elm$svg$Svg$Attributes$strokeWidth = _VirtualDom_attribute('stroke-width');
+var $elm$svg$Svg$Attributes$x1 = _VirtualDom_attribute('x1');
+var $elm$svg$Svg$Attributes$x2 = _VirtualDom_attribute('x2');
+var $elm$svg$Svg$Attributes$y1 = _VirtualDom_attribute('y1');
+var $elm$svg$Svg$Attributes$y2 = _VirtualDom_attribute('y2');
+var $jxxcarlson$elm_graph$SimpleGraph$segmentToSVG = F2(
+	function (options, _v0) {
+		var _v1 = _v0.a;
+		var x1 = _v1.a;
+		var y1 = _v1.b;
+		var _v2 = _v0.b;
+		var x2 = _v2.a;
+		var y2 = _v2.b;
+		return A2(
+			$elm$svg$Svg$line,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$x1(
+					$elm$core$String$fromFloat(x1)),
+					$elm$svg$Svg$Attributes$y1(
+					$elm$core$String$fromFloat(y1)),
+					$elm$svg$Svg$Attributes$x2(
+					$elm$core$String$fromFloat(x2)),
+					$elm$svg$Svg$Attributes$y2(
+					$elm$core$String$fromFloat(y2)),
+					$elm$svg$Svg$Attributes$stroke(
+					$jxxcarlson$elm_graph$SimpleGraph$lineColor(options)),
+					$elm$svg$Svg$Attributes$strokeWidth('1')
+				]),
+			_List_Nil);
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$bxTickmark = function (x) {
+	return A2(
+		$jxxcarlson$elm_graph$SimpleGraph$segmentToSVG,
+		_List_Nil,
+		_Utils_Tuple2(
+			_Utils_Tuple2(x, 0),
+			_Utils_Tuple2(x, -8)));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$deltaX_ = function (option) {
+	if (option.$ === 'DeltaX') {
+		var dx = option.a;
+		return $elm$core$Maybe$Just(dx);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$deltaX = function (options) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		15,
+		A2($jxxcarlson$elm_graph$SimpleGraph$findMap, $jxxcarlson$elm_graph$SimpleGraph$deltaX_, options));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$xTickmarks_ = function (option) {
+	if (option.$ === 'XTickmarks') {
+		var k = option.a;
+		return $elm$core$Maybe$Just(k);
+	} else {
+		return $elm$core$Maybe$Nothing;
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$xTickmarks = function (options) {
+	return A2(
+		$elm$core$Maybe$withDefault,
+		0,
+		A2($jxxcarlson$elm_graph$SimpleGraph$findMap, $jxxcarlson$elm_graph$SimpleGraph$xTickmarks_, options));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$bxTickmarks = function (ga) {
+	var dx = $jxxcarlson$elm_graph$SimpleGraph$xTickmarks(ga.options) * $jxxcarlson$elm_graph$SimpleGraph$deltaX(ga.options);
+	var n = $elm$core$Basics$round(ga.graphWidth / dx);
+	return A2(
+		$elm$svg$Svg$g,
+		_List_Nil,
+		A2(
+			$elm$core$List$map,
+			$jxxcarlson$elm_graph$SimpleGraph$bxTickmark,
+			A2(
+				$elm$core$List$map,
+				function (k) {
+					return k * dx;
+				},
+				A2($elm$core$List$range, 0, n - 1))));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$byTickmark = function (y) {
+	return A2(
+		$jxxcarlson$elm_graph$SimpleGraph$segmentToSVG,
+		_List_Nil,
+		_Utils_Tuple2(
+			_Utils_Tuple2(0, y),
+			_Utils_Tuple2(-8, y)));
+};
+var $jxxcarlson$elm_graph$SimpleGraph$byTickmarks = function (ga) {
+	var n = $jxxcarlson$elm_graph$SimpleGraph$yTickmarks(ga.options);
+	return A2(
+		$elm$svg$Svg$g,
+		_List_Nil,
+		A2(
+			$elm$core$List$map,
+			$jxxcarlson$elm_graph$SimpleGraph$byTickmark,
+			A2(
+				$elm$core$List$map,
+				function (k) {
+					return (k * ga.graphHeight) / (n - 1);
+				},
+				A2($elm$core$List$range, 0, n - 1))));
+};
+var $elm$core$Tuple$pair = F2(
+	function (a, b) {
+		return _Utils_Tuple2(a, b);
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$xCoordinates = F2(
+	function (n, dx) {
+		return A2(
+			$elm$core$List$map,
+			function (i) {
+				return i * dx;
+			},
+			A2($elm$core$List$range, 0, n));
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$prepare = F2(
+	function (dx, data) {
+		var ymax = A2(
+			$elm$core$Maybe$withDefault,
+			1,
+			$elm$core$List$maximum(data));
+		var ys = A2(
+			$elm$core$List$map,
+			function (y) {
+				return y / ymax;
+			},
+			data);
+		var xs = A2(
+			$jxxcarlson$elm_graph$SimpleGraph$xCoordinates,
+			$elm$core$List$length(data),
+			dx);
+		return _Utils_Tuple2(
+			ymax,
+			A3($elm$core$List$map2, $elm$core$Tuple$pair, xs, ys));
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$barChartAsSVG = F2(
+	function (ga, data) {
+		var yTickmarks2 = $jxxcarlson$elm_graph$SimpleGraph$byTickmarks(ga);
+		var xTickmarks2 = $jxxcarlson$elm_graph$SimpleGraph$bxTickmarks(ga);
+		var transformer = $elm$svg$Svg$Attributes$transform(
+			$jxxcarlson$elm_graph$SimpleGraph$buildSVGTransformString(ga));
+		var ordinate = A2(
+			$jxxcarlson$elm_graph$SimpleGraph$segmentToSVG,
+			_List_Nil,
+			_Utils_Tuple2(
+				_Utils_Tuple2(0, 0),
+				_Utils_Tuple2(0, ga.graphHeight)));
+		var barWidth = 0.8 * $jxxcarlson$elm_graph$SimpleGraph$deltaX(ga.options);
+		var gbar = function (_v1) {
+			var x = _v1.a;
+			var y = _v1.b;
+			return A5(
+				$jxxcarlson$elm_graph$SimpleGraph$barRect,
+				$jxxcarlson$elm_graph$SimpleGraph$lineColor(ga.options),
+				barWidth,
+				ga.graphHeight,
+				x,
+				y);
+		};
+		var abscissa = A2(
+			$jxxcarlson$elm_graph$SimpleGraph$segmentToSVG,
+			_List_Nil,
+			_Utils_Tuple2(
+				_Utils_Tuple2(0, 0),
+				_Utils_Tuple2(ga.graphWidth, 0)));
+		var _v0 = A2(
+			$jxxcarlson$elm_graph$SimpleGraph$prepare,
+			$jxxcarlson$elm_graph$SimpleGraph$deltaX(ga.options),
+			data);
+		var yMax = _v0.a;
+		var preparedData = _v0.b;
+		var yLabels = A2($jxxcarlson$elm_graph$SimpleGraph$bMakeYLabels, yMax, ga);
+		return A2(
+			$elm$svg$Svg$g,
+			_List_fromArray(
+				[transformer]),
+			_Utils_ap(
+				A2($elm$core$List$map, gbar, preparedData),
+				_List_fromArray(
+					[abscissa, ordinate, xTickmarks2, yTickmarks2, yLabels])));
+	});
+var $jxxcarlson$elm_graph$SimpleGraph$barChart = F2(
+	function (ga, data) {
+		return A2(
+			$elm$svg$Svg$svg,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$transform('scale(1,-1)'),
+					$elm$svg$Svg$Attributes$height(
+					$elm$core$String$fromFloat(ga.graphHeight + 40)),
+					$elm$svg$Svg$Attributes$width(
+					$elm$core$String$fromFloat(ga.graphWidth + 40)),
+					$elm$svg$Svg$Attributes$viewBox(
+					'-60 -20 ' + ($elm$core$String$fromFloat(ga.graphWidth + 40) + (' ' + $elm$core$String$fromFloat(ga.graphHeight + 20))))
+				]),
+			_List_fromArray(
+				[
+					A2($jxxcarlson$elm_graph$SimpleGraph$barChartAsSVG, ga, data)
+				]));
+	});
+var $author$project$Style$endColor = A3($mdgriffith$elm_ui$Element$rgb255, 255, 200, 200);
+var $author$project$Style$pausedColor = A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 200);
+var $author$project$Main$bgColor = function (model) {
+	var _v0 = model.runState;
+	switch (_v0.$) {
+		case 'End':
+			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$endColor);
+		case 'Paused':
+			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$pausedColor);
+		default:
+			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$lightColor);
+	}
+};
+var $jxxcarlson$elm_graph$SimpleGraph$Color = function (a) {
+	return {$: 'Color', a: a};
+};
+var $jxxcarlson$elm_graph$SimpleGraph$DeltaX = function (a) {
+	return {$: 'DeltaX', a: a};
+};
+var $jxxcarlson$elm_graph$SimpleGraph$XTickmarks = function (a) {
+	return {$: 'XTickmarks', a: a};
+};
+var $jxxcarlson$elm_graph$SimpleGraph$YTickmarks = function (a) {
+	return {$: 'YTickmarks', a: a};
+};
+var $author$project$Main$lineGraphAttributes = {
+	graphHeight: 35,
+	graphWidth: 1200,
+	options: _List_fromArray(
+		[
+			$jxxcarlson$elm_graph$SimpleGraph$Color('blue'),
+			$jxxcarlson$elm_graph$SimpleGraph$XTickmarks(12),
+			$jxxcarlson$elm_graph$SimpleGraph$YTickmarks(0),
+			$jxxcarlson$elm_graph$SimpleGraph$DeltaX(3)
+		])
+};
+var $author$project$Main$graphDisplay = function (model) {
+	return A2(
+		$mdgriffith$elm_ui$Element$row,
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$paddingEach(
+				{bottom: 0, left: 0, right: 0, top: 20}),
+				$mdgriffith$elm_ui$Element$moveDown(10),
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+				$mdgriffith$elm_ui$Element$height(
+				$mdgriffith$elm_ui$Element$px(50)),
+				$author$project$Main$bgColor(model)
+			]),
+		_List_fromArray(
+			[
+				$mdgriffith$elm_ui$Element$html(
+				A2(
+					$jxxcarlson$elm_graph$SimpleGraph$barChart,
+					$author$project$Main$lineGraphAttributes,
+					$elm$core$List$reverse(
+						A2($elm$core$List$map, $elm$core$Tuple$second, model.state.data))))
+			]));
+};
 var $author$project$Style$mainColumn = _List_fromArray(
 	[
 		$mdgriffith$elm_ui$Element$Background$color(
@@ -17212,9 +17797,11 @@ var $author$project$Main$mainColumn = function (model) {
 				_List_fromArray(
 					[
 						$author$project$Main$displayState(model),
+						$author$project$Main$displayLog(model),
 						$author$project$Main$dashboard(model),
 						$author$project$Main$controlPanel(model)
 					])),
+				$author$project$Main$graphDisplay(model),
 				$author$project$Main$footer(model)
 			]));
 };
