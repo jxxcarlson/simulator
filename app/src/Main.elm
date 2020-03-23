@@ -193,35 +193,58 @@ update msg model =
                 Running ->
                     let
                         ( counter, runState, batchJobState_ ) =
-                            Debug.log "(co,  rs, bjs)"
-                                (updateRunParameters model)
+                            updateRunParameters model
 
                         newData =
                             updateData model runState batchJobState_
+
+                        refreshData : RunState -> State -> State
+                        refreshData bjs state =
+                            let
+                                _ =
+                                    Debug.log "BJS" bjs
+                            in
+                            if bjs == BatchDone then
+                                { state | data = [] }
+
+                            else
+                                state
+
+                        refreshLog : RunState -> State -> State
+                        refreshLog bjs state =
+                            let
+                                _ =
+                                    Debug.log "BJS" bjs
+                            in
+                            if bjs == BatchDone then
+                                { state | log = [] }
+
+                            else
+                                state
 
                         newState =
                             model.state
                                 |> (\st -> { st | businessLog = updateBusinessLog model model.runMode counter st.businessLog })
                                 |> Engine.nextState model.configuration counter
+                                |> refreshData runState
+                                |> refreshLog runState
 
                         runState2 =
-                            Debug.log "runState2"
-                                (case model.runMode of
-                                    Single ->
-                                        runState
+                            case model.runMode of
+                                Single ->
+                                    runState
 
-                                    Batch ->
-                                        case batchJobState_ of
-                                            InTrial k ->
-                                                if runState == BatchDone && k > model.trialsToRun then
-                                                    End
-
-                                                else
-                                                    Running
-
-                                            _ ->
+                                Batch ->
+                                    case batchJobState_ of
+                                        InTrial k ->
+                                            if runState == BatchDone && k > model.trialsToRun then
                                                 End
-                                )
+
+                                            else
+                                                Running
+
+                                        _ ->
+                                            End
                     in
                     ( { model
                         | counter = counter
@@ -248,11 +271,17 @@ update msg model =
                     ( { model | runState = Running }, Cmd.none )
 
                 End ->
+                    let
+                        oldState =
+                            model.state
+
+                        newState =
+                            { oldState | businessLog = [] }
+                    in
                     { model
                         | runState = Running
                         , counter = 0
-
-                        -- , data = []
+                        , state = newState
                     }
                         |> withCmd getRandomNumber
 
@@ -513,22 +542,19 @@ updateCCRatioInConfig str config =
             config
 
         Just ccRatio_ ->
-            { config | maximumCCRatio = Debug.log "ccRatio_" ccRatio_ }
+            { config | maximumCCRatio = ccRatio_ }
 
 
 updateCCRatio : String -> Model -> Model
 updateCCRatio str model =
     let
-        _ =
-            Debug.log "updateCCRatio" str
-
         newConfig =
             updateCCRatioInConfig str model.state.config
 
         newState =
             State.updateConfig newConfig model.state
     in
-    { model | ccRatioString = Debug.log "CCR@@" str, state = newState }
+    { model | ccRatioString = str, state = newState }
 
 
 updateRentInConfig : String -> EngineData.Config -> EngineData.Config
@@ -560,7 +586,7 @@ updateTrialsToRun str model =
             { model | trialsToRunString = str }
 
         Just k ->
-            { model | trialsToRunString = str, trialsToRun = k }
+            { model | trialsToRunString = str, trialsToRun = Debug.log "TrialsToRun" k }
 
 
 
@@ -654,8 +680,16 @@ dashboard model =
         , el [] (text <| "------------------------------")
         , row [ spacing 8 ] (displayLostSales model ++ [ totalLostSales model ])
         , displayStatistics model
-        , el [] (text <| Debug.toString model.data)
+        , el [] (text <| displayLostSaleData model)
         ]
+
+
+displayLostSaleData : Model -> String
+displayLostSaleData model =
+    model.data
+        |> List.take 7
+        |> List.map String.fromInt
+        |> String.join ", "
 
 
 displayStatistics model =
@@ -663,11 +697,15 @@ displayStatistics model =
         stats =
             Statistics.stats (List.map toFloat model.data)
     in
-    row [ spacing 8 ]
-        [ el [] (text <| String.fromInt stats.n)
-        , el [] (text <| String.fromFloat stats.mean)
-        , el [] (text <| String.fromFloat stats.stdev)
-        ]
+    if stats.n > 0 then
+        row [ spacing 8 ]
+            [ el [] (text <| String.fromInt stats.n)
+            , el [] (text <| String.fromFloat stats.mean)
+            , el [] (text <| String.fromFloat stats.stdev)
+            ]
+
+    else
+        Element.none
 
 
 totalLostSales : Model -> Element msg

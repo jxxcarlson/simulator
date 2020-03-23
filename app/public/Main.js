@@ -7345,7 +7345,6 @@ var $author$project$Main$InTrial = function (a) {
 	return {$: 'InTrial', a: a};
 };
 var $author$project$Main$Running = {$: 'Running'};
-var $elm$core$Debug$log = _Debug_log;
 var $elm$core$String$toFloat = _String_toFloat;
 var $author$project$Main$updateCCRatioInConfig = F2(
 	function (str, config) {
@@ -7356,9 +7355,7 @@ var $author$project$Main$updateCCRatioInConfig = F2(
 			var ccRatio_ = _v0.a;
 			return _Utils_update(
 				config,
-				{
-					maximumCCRatio: A2($elm$core$Debug$log, 'ccRatio_', ccRatio_)
-				});
+				{maximumCCRatio: ccRatio_});
 		}
 	});
 var $author$project$State$updateConfig = F2(
@@ -7371,13 +7368,9 @@ var $author$project$Main$updateCCRatio = F2(
 	function (str, model) {
 		var newConfig = A2($author$project$Main$updateCCRatioInConfig, str, model.state.config);
 		var newState = A2($author$project$State$updateConfig, newConfig, model.state);
-		var _v0 = A2($elm$core$Debug$log, 'updateCCRatio', str);
 		return _Utils_update(
 			model,
-			{
-				ccRatioString: A2($elm$core$Debug$log, 'CCR@@', str),
-				state: newState
-			});
+			{ccRatioString: str, state: newState});
 	});
 var $author$project$Main$updateCycleLengthInConfig = F2(
 	function (str, config) {
@@ -7439,6 +7432,7 @@ var $author$project$Main$updateTickRate = F2(
 			model,
 			{state: newState, tickRateString: str});
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $author$project$Main$updateTrialsToRun = F2(
 	function (str, model) {
 		var _v0 = $elm$core$String$toInt(str);
@@ -7450,7 +7444,10 @@ var $author$project$Main$updateTrialsToRun = F2(
 			var k = _v0.a;
 			return _Utils_update(
 				model,
-				{trialsToRun: k, trialsToRunString: str});
+				{
+					trialsToRun: A2($elm$core$Debug$log, 'TrialsToRun', k),
+					trialsToRunString: str
+				});
 		}
 	});
 var $author$project$Main$updateParameters = function (model) {
@@ -8945,41 +8942,55 @@ var $author$project$Main$update = F2(
 			case 'Tick':
 				var _v1 = model.runState;
 				if (_v1.$ === 'Running') {
-					var _v2 = A2(
-						$elm$core$Debug$log,
-						'(co,  rs, bjs)',
-						$author$project$Main$updateRunParameters(model));
+					var refreshLog = F2(
+						function (bjs, state) {
+							var _v6 = A2($elm$core$Debug$log, 'BJS', bjs);
+							return _Utils_eq(bjs, $author$project$Main$BatchDone) ? _Utils_update(
+								state,
+								{log: _List_Nil}) : state;
+						});
+					var refreshData = F2(
+						function (bjs, state) {
+							var _v5 = A2($elm$core$Debug$log, 'BJS', bjs);
+							return _Utils_eq(bjs, $author$project$Main$BatchDone) ? _Utils_update(
+								state,
+								{data: _List_Nil}) : state;
+						});
+					var _v2 = $author$project$Main$updateRunParameters(model);
 					var counter = _v2.a;
 					var runState = _v2.b;
 					var batchJobState_ = _v2.c;
-					var newState = A3(
-						$author$project$Engine$nextState,
-						model.configuration,
-						counter,
-						function (st) {
-							return _Utils_update(
-								st,
-								{
-									businessLog: A4($author$project$Main$updateBusinessLog, model, model.runMode, counter, st.businessLog)
-								});
-						}(model.state));
 					var newData = A3($author$project$Main$updateData, model, runState, batchJobState_);
-					var runState2 = A2(
-						$elm$core$Debug$log,
-						'runState2',
-						function () {
-							var _v3 = model.runMode;
-							if (_v3.$ === 'Single') {
-								return runState;
+					var newState = A2(
+						refreshLog,
+						runState,
+						A2(
+							refreshData,
+							runState,
+							A3(
+								$author$project$Engine$nextState,
+								model.configuration,
+								counter,
+								function (st) {
+									return _Utils_update(
+										st,
+										{
+											businessLog: A4($author$project$Main$updateBusinessLog, model, model.runMode, counter, st.businessLog)
+										});
+								}(model.state))));
+					var runState2 = function () {
+						var _v3 = model.runMode;
+						if (_v3.$ === 'Single') {
+							return runState;
+						} else {
+							if (batchJobState_.$ === 'InTrial') {
+								var k = batchJobState_.a;
+								return (_Utils_eq(runState, $author$project$Main$BatchDone) && (_Utils_cmp(k, model.trialsToRun) > 0)) ? $author$project$Main$End : $author$project$Main$Running;
 							} else {
-								if (batchJobState_.$ === 'InTrial') {
-									var k = batchJobState_.a;
-									return (_Utils_eq(runState, $author$project$Main$BatchDone) && (_Utils_cmp(k, model.trialsToRun) > 0)) ? $author$project$Main$End : $author$project$Main$Running;
-								} else {
-									return $author$project$Main$End;
-								}
+								return $author$project$Main$End;
 							}
-						}());
+						}
+					}();
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
@@ -8989,8 +9000,8 @@ var $author$project$Main$update = F2(
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			case 'CycleRun':
-				var _v5 = model.runState;
-				switch (_v5.$) {
+				var _v7 = model.runState;
+				switch (_v7.$) {
 					case 'Paused':
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -9010,16 +9021,20 @@ var $author$project$Main$update = F2(
 								{runState: $author$project$Main$Running}),
 							$elm$core$Platform$Cmd$none);
 					default:
+						var oldState = model.state;
+						var newState = _Utils_update(
+							oldState,
+							{businessLog: _List_Nil});
 						return A2(
 							$Janiczek$cmd_extra$Cmd$Extra$withCmd,
 							$author$project$Main$getRandomNumber,
 							_Utils_update(
 								model,
-								{counter: 0, runState: $author$project$Main$Running}));
+								{counter: 0, runState: $author$project$Main$Running, state: newState}));
 				}
 			case 'CycleRunMode':
-				var _v6 = model.runMode;
-				if (_v6.$ === 'Single') {
+				var _v8 = model.runMode;
+				if (_v8.$ === 'Single') {
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						_Utils_update(
 							model,
@@ -9092,15 +9107,15 @@ var $author$project$Main$update = F2(
 					A2($author$project$Main$updateTrialsToRun, str, model));
 			case 'AcceptConfiguration':
 				var str = msg.a;
-				var _v7 = $elm$core$String$toInt(str);
-				if (_v7.$ === 'Nothing') {
+				var _v9 = $elm$core$String$toInt(str);
+				if (_v9.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{configurationString: str}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var k = _v7.a;
+					var k = _v9.a;
 					var index = k - 1;
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						A2($author$project$Main$changeConfig, index, model));
@@ -9123,12 +9138,12 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var str = result.a;
-					var _v9 = $elm$core$String$toInt(
+					var _v11 = $elm$core$String$toInt(
 						$elm$core$String$trim(str));
-					if (_v9.$ === 'Nothing') {
+					if (_v11.$ === 'Nothing') {
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
-						var rn = _v9.a;
+						var rn = _v11.a;
 						var config = A2($author$project$Main$updateParametersInConfig, model, model.state.config);
 						var newState = A2(
 							$author$project$State$configure,
@@ -16222,6 +16237,15 @@ var $author$project$Style$dashboard = _List_fromArray(
 				$mdgriffith$elm_ui$Element$Font$typeface('Courier')
 			]))
 	]);
+var $author$project$Main$displayLostSaleData = function (model) {
+	return A2(
+		$elm$core$String$join,
+		', ',
+		A2(
+			$elm$core$List$map,
+			$elm$core$String$fromInt,
+			A2($elm$core$List$take, 7, model.data)));
+};
 var $mdgriffith$elm_ui$Element$row = F2(
 	function (attrs, children) {
 		return A4(
@@ -16272,6 +16296,8 @@ var $author$project$Main$displayLostSales = function (model) {
 	var data = model.state.businessLog;
 	return A2($elm$core$List$map, display, data);
 };
+var $mdgriffith$elm_ui$Internal$Model$Empty = {$: 'Empty'};
+var $mdgriffith$elm_ui$Element$none = $mdgriffith$elm_ui$Internal$Model$Empty;
 var $author$project$Statistics$mean = function (data) {
 	return $elm$core$List$sum(data) / $elm$core$List$length(data);
 };
@@ -16324,7 +16350,7 @@ var $author$project$Statistics$stats = function (data) {
 var $author$project$Main$displayStatistics = function (model) {
 	var stats = $author$project$Statistics$stats(
 		A2($elm$core$List$map, $elm$core$Basics$toFloat, model.data));
-	return A2(
+	return (stats.n > 0) ? A2(
 		$mdgriffith$elm_ui$Element$row,
 		_List_fromArray(
 			[
@@ -16347,7 +16373,7 @@ var $author$project$Main$displayStatistics = function (model) {
 				_List_Nil,
 				$mdgriffith$elm_ui$Element$text(
 					$elm$core$String$fromFloat(stats.stdev)))
-			]));
+			])) : $mdgriffith$elm_ui$Element$none;
 };
 var $author$project$Report$fiatBalanceOfEntityList = F2(
 	function (bt, entityList) {
@@ -16500,7 +16526,6 @@ var $author$project$Report$minMaxHouseholdInventoryOf = F2(
 					$elm$core$List$maximum(inventories)
 				]));
 	});
-var $elm$core$Debug$toString = _Debug_toString;
 var $author$project$Main$totalLostSales = function (model) {
 	var data = model.state.businessLog;
 	var total = $elm$core$List$sum(
@@ -16641,7 +16666,7 @@ var $author$project$Main$dashboard = function (model) {
 				$mdgriffith$elm_ui$Element$el,
 				_List_Nil,
 				$mdgriffith$elm_ui$Element$text(
-					$elm$core$Debug$toString(model.data)))
+					$author$project$Main$displayLostSaleData(model)))
 			]));
 };
 var $author$project$Main$booleanOr = function (list) {
@@ -16719,7 +16744,6 @@ var $author$project$Main$CellGrid = function (a) {
 	return {$: 'CellGrid', a: a};
 };
 var $mdgriffith$elm_ui$Element$html = $mdgriffith$elm_ui$Internal$Model$unstyled;
-var $mdgriffith$elm_ui$Internal$Model$Empty = {$: 'Empty'};
 var $elm$virtual_dom$VirtualDom$map = _VirtualDom_map;
 var $mdgriffith$elm_ui$Internal$Model$map = F2(
 	function (fn, el) {
