@@ -8852,14 +8852,17 @@ var $author$project$Main$updateData = F3(
 						case 'InTrial':
 							var _v3 = _v2.a;
 							var k = _v2.b.a;
-							return (_Utils_cmp(k, model.trialsToRun) < 0) ? A2(
+							return (_Utils_cmp(k, model.trialsToRun) < 1) ? A2(
 								$elm$core$List$cons,
 								$author$project$State$lostSales(model.state.businessLog),
 								model.data) : model.data;
 						case 'EndBatch':
 							var _v4 = _v2.a;
 							var _v5 = _v2.b;
-							return model.data;
+							return A2(
+								$elm$core$List$cons,
+								$author$project$State$lostSales(model.state.businessLog),
+								model.data);
 						default:
 							break _v2$2;
 					}
@@ -8971,7 +8974,7 @@ var $author$project$Main$update = F2(
 							} else {
 								if (batchJobState_.$ === 'InTrial') {
 									var k = batchJobState_.a;
-									return (_Utils_eq(runState, $author$project$Main$BatchDone) && (_Utils_cmp(k, model.trialsToRun - 1) > 0)) ? $author$project$Main$End : $author$project$Main$Running;
+									return (_Utils_eq(runState, $author$project$Main$BatchDone) && (_Utils_cmp(k, model.trialsToRun) > 0)) ? $author$project$Main$End : $author$project$Main$Running;
 								} else {
 									return $author$project$Main$End;
 								}

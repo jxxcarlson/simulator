@@ -213,7 +213,7 @@ update msg model =
                                     Batch ->
                                         case batchJobState_ of
                                             InTrial k ->
-                                                if runState == BatchDone && k > model.trialsToRun - 1 then
+                                                if runState == BatchDone && k > model.trialsToRun then
                                                     End
 
                                                 else
@@ -388,14 +388,14 @@ updateData model runState bjs =
         Batch ->
             case ( runState, bjs ) of
                 ( BatchDone, InTrial k ) ->
-                    if k < model.trialsToRun then
+                    if k <= model.trialsToRun then
                         State.lostSales model.state.businessLog :: model.data
 
                     else
                         model.data
 
                 ( BatchDone, EndBatch ) ->
-                    model.data
+                    State.lostSales model.state.businessLog :: model.data
 
                 _ ->
                     model.data
