@@ -3,6 +3,7 @@ module Style exposing
     , controlPanel
     , dashboard
     , endColor
+    , lightBlue
     , lightColor
     , log
     , mainColumn
@@ -80,6 +81,11 @@ selectedButton =
 lightColor : Color
 lightColor =
     rgb255 200 200 200
+
+
+lightBlue : Color
+lightBlue =
+    rgb255 90 90 255
 
 
 pausedColor : Color

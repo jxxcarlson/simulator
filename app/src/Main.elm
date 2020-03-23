@@ -40,6 +40,10 @@ main =
         }
 
 
+
+-- MODEL
+
+
 type alias Model =
     { input : String
     , output : String
@@ -58,13 +62,15 @@ type alias Model =
     , runMode : RunMode
     , batchJobState : BatchJobState
     , trialsToRun : Int
+    , trialsToRunString : String
     , randomAtmosphericInt : Maybe Int
-    , data : List Int
+    , data : List Int -- record of total lost sales per trial
     }
 
 
 type RunState
     = Running
+    | BatchDone
     | Paused
     | End
 
@@ -97,6 +103,7 @@ type Msg
     | AcceptCCRatio String
     | AcceptConfiguration String
     | AcceptRentString String
+    | AcceptTrialsString String
     | IncrementModel
     | DecrementModel
     | SetModel Int
@@ -126,6 +133,7 @@ init flags =
       , runMode = Single
       , batchJobState = NoBatch
       , trialsToRun = 5
+      , trialsToRunString = "5"
       , filterString = ""
       , ccRatioString = String.fromFloat config.maximumCCRatio
       , randomAtmosphericInt = Nothing
@@ -157,9 +165,6 @@ changeConfig k model =
 
         newState =
             State.configure configuration seed
-
-        _ =
-            Debug.log "CCR" newState.config.maximumCCRatio
     in
     { model
         | configurationString = String.fromInt k
@@ -188,73 +193,41 @@ update msg model =
                 Running ->
                     let
                         ( counter, runState, batchJobState_ ) =
-                            case model.runMode of
-                                Single ->
-                                    case model.counter < model.state.config.cycleLength of
-                                        True ->
-                                            ( model.counter + 1, Running, NoBatch )
+                            Debug.log "(co,  rs, bjs)"
+                                (updateRunParameters model)
 
-                                        False ->
-                                            ( 0, End, NoBatch )
-
-                                Batch ->
-                                    let
-                                        n =
-                                            model.trialsToRun - 1
-                                    in
-                                    case model.batchJobState of
-                                        InTrial k ->
-                                            case ( model.counter < model.state.config.cycleLength, k < n ) of
-                                                ( True, _ ) ->
-                                                    ( model.counter + 1, Running, InTrial k )
-
-                                                ( False, True ) ->
-                                                    ( 0, Running, InTrial (k + 1) )
-
-                                                ( False, False ) ->
-                                                    ( 0, End, EndBatch )
-
-                                        _ ->
-                                            ( 0, End, EndBatch )
-
-                        updateBusinessLog : RunMode -> Int -> List BusinessLog -> List BusinessLog
-                        updateBusinessLog runMode_ counter_ log =
-                            case ( runMode_, counter_ ) of
-                                ( Batch, 0 ) ->
-                                    State.newBusinessLog model.state
-
-                                _ ->
-                                    log
-
-                        updateData : RunState -> State -> List Int -> List Int
-                        updateData runState_ state data_ =
-                            case model.runMode of
-                                Single ->
-                                    case runState of
-                                        End ->
-                                            State.lostSales state.businessLog :: data_
-
-                                        _ ->
-                                            data_
-
-                                Batch ->
-                                    case counter of
-                                        0 ->
-                                            State.lostSales state.businessLog :: data_
-
-                                        _ ->
-                                            data_
+                        newData =
+                            updateData model runState batchJobState_
 
                         newState =
                             model.state
-                                |> (\st -> { st | businessLog = updateBusinessLog model.runMode counter st.businessLog })
+                                |> (\st -> { st | businessLog = updateBusinessLog model model.runMode counter st.businessLog })
                                 |> Engine.nextState model.configuration counter
+
+                        runState2 =
+                            Debug.log "runState2"
+                                (case model.runMode of
+                                    Single ->
+                                        runState
+
+                                    Batch ->
+                                        case batchJobState_ of
+                                            InTrial k ->
+                                                if runState == BatchDone && k > model.trialsToRun - 1 then
+                                                    End
+
+                                                else
+                                                    Running
+
+                                            _ ->
+                                                End
+                                )
                     in
                     ( { model
                         | counter = counter
                         , state = newState
-                        , runState = runState
-                        , data = updateData runState model.state model.data
+                        , runState = runState2
+                        , data = newData
                         , batchJobState = batchJobState_
                       }
                     , Cmd.none
@@ -271,11 +244,15 @@ update msg model =
                 Running ->
                     ( { model | runState = Paused }, Cmd.none )
 
+                BatchDone ->
+                    ( { model | runState = Running }, Cmd.none )
+
                 End ->
                     { model
                         | runState = Running
                         , counter = 0
-                        , data = []
+
+                        -- , data = []
                     }
                         |> withCmd getRandomNumber
 
@@ -302,6 +279,7 @@ update msg model =
                 |> updateCycleLength model.cycleLengthString
                 |> updateRent model.rentString
                 |> updateTickRate model.tickRateString
+                |> updateTrialsToRun model.trialsToRunString
             , getRandomNumber
             )
 
@@ -319,6 +297,9 @@ update msg model =
 
         AcceptRentString str ->
             updateRent str model |> withNoCmd
+
+        AcceptTrialsString str ->
+            updateTrialsToRun str model |> withNoCmd
 
         AcceptConfiguration str ->
             case String.toInt str of
@@ -381,7 +362,7 @@ update msg model =
                             in
                             { model
                                 | randomAtmosphericInt = Just rn
-                                , state = State.configure config rn
+                                , state = State.configure config rn |> (\state -> { state | data = [] })
                             }
                                 |> withNoCmd
 
@@ -393,12 +374,81 @@ update msg model =
 -- HELPER
 
 
+updateData : Model -> RunState -> BatchJobState -> List Int
+updateData model runState bjs =
+    case model.runMode of
+        Single ->
+            case runState of
+                End ->
+                    State.lostSales model.state.businessLog :: model.data
+
+                _ ->
+                    model.data
+
+        Batch ->
+            case ( runState, bjs ) of
+                ( BatchDone, InTrial k ) ->
+                    if k < model.trialsToRun then
+                        State.lostSales model.state.businessLog :: model.data
+
+                    else
+                        model.data
+
+                ( BatchDone, EndBatch ) ->
+                    model.data
+
+                _ ->
+                    model.data
+
+
+updateRunParameters : Model -> ( Int, RunState, BatchJobState )
+updateRunParameters model =
+    case model.runMode of
+        Single ->
+            case model.counter < model.state.config.cycleLength of
+                True ->
+                    ( model.counter + 1, Running, NoBatch )
+
+                False ->
+                    ( 0, End, NoBatch )
+
+        Batch ->
+            let
+                n =
+                    model.trialsToRun - 1
+            in
+            case model.batchJobState of
+                InTrial k ->
+                    case ( model.counter < model.state.config.cycleLength, k <= n + 1 ) of
+                        ( True, _ ) ->
+                            ( model.counter + 1, Running, InTrial k )
+
+                        ( False, True ) ->
+                            ( 0, BatchDone, InTrial (k + 1) )
+
+                        ( False, False ) ->
+                            ( 0, End, EndBatch )
+
+                _ ->
+                    ( 0, End, EndBatch )
+
+
+updateBusinessLog : Model -> RunMode -> Int -> List BusinessLog -> List BusinessLog
+updateBusinessLog model runMode_ counter_ log =
+    case ( runMode_, counter_ ) of
+        ( Batch, 0 ) ->
+            State.newBusinessLog model.state
+
+        _ ->
+            log
+
+
 updateParametersInConfig : Model -> EngineData.Config -> EngineData.Config
 updateParametersInConfig model configuration =
     configuration
         |> updateCycleLengthInConfig (String.fromInt model.state.config.cycleLength)
         |> updateTickRateInConfig (String.fromFloat model.state.config.tickLoopInterval)
-        |> updateCCRatioInConfig (String.fromFloat model.state.config.tickLoopInterval)
+        |> updateCCRatioInConfig (String.fromFloat model.state.config.maximumCCRatio)
         |> updateRentInConfig (String.fromFloat model.state.config.businessRent)
 
 
@@ -409,6 +459,7 @@ updateParameters model =
         |> updateTickRate (String.fromFloat model.state.config.tickLoopInterval)
         |> updateCCRatio (String.fromFloat model.state.config.maximumCCRatio)
         |> updateRent (String.fromFloat model.state.config.businessRent)
+        |> updateTrialsToRun (String.fromFloat model.state.config.businessRent)
 
 
 updateCycleLengthInConfig : String -> EngineData.Config -> EngineData.Config
@@ -502,6 +553,16 @@ updateRent str model =
     { model | rentString = str, state = newState }
 
 
+updateTrialsToRun : String -> Model -> Model
+updateTrialsToRun str model =
+    case String.toInt str of
+        Nothing ->
+            { model | trialsToRunString = str }
+
+        Just k ->
+            { model | trialsToRunString = str, trialsToRun = k }
+
+
 
 --
 -- VIEW
@@ -546,6 +607,9 @@ bgColor model =
         Running ->
             Background.color Style.lightColor
 
+        BatchDone ->
+            Background.color Style.lightBlue
+
 
 graphDisplay model =
     row [ paddingEach { top = 20, bottom = 0, left = 0, right = 0 }, moveDown 10, width fill, height (px 50), bgColor model ]
@@ -558,6 +622,7 @@ controlPanel model =
         [ el [] (text <| "Control Panel")
         , el [ paddingXY 0 2 ] (text <| "")
         , cycleLengthInput model
+        , trialsToRunInput model
         , tickRateInput model
         , ccRatioInput model
         , rentInput model
@@ -585,9 +650,11 @@ dashboard model =
         , el [] (text <| "Business inventories = " ++ businessInventory model)
         , el [] (text <| "Fiat balances = " ++ fiatBalances model)
         , el [] (text <| "CC balances = " ++ ccBalances model)
+        , el [] (text <| "CC Ratio = " ++ String.fromFloat model.state.config.maximumCCRatio)
         , el [] (text <| "------------------------------")
-        , row [ spacing 4 ] (displayLostSales model ++ [ totalLostSales model ])
+        , row [ spacing 8 ] (displayLostSales model ++ [ totalLostSales model ])
         , displayStatistics model
+        , el [] (text <| Debug.toString model.data)
         ]
 
 
@@ -624,8 +691,8 @@ displayLostSales model =
         display : BusinessLog -> Element msg
         display bl =
             row [ spacing 2 ]
-                [ el [ width (px 20) ] (text <| bl.name ++ ":")
-                , el [ width (px 20) ] (text <| String.fromInt bl.lostSales)
+                [ el [ width (px 25) ] (text <| bl.name ++ ":")
+                , el [ width (px 25) ] (text <| String.fromInt bl.lostSales)
                 ]
     in
     List.map display data
@@ -810,6 +877,9 @@ runButton model =
                 Running ->
                     "Pause"
 
+                BatchDone ->
+                    "Pause"
+
                 Paused ->
                     "Run"
 
@@ -883,6 +953,10 @@ ccRatioInput model =
 
 rentInput model =
     dashboardInput AcceptRentString model.rentString "Rent"
+
+
+trialsToRunInput model =
+    dashboardInput AcceptTrialsString model.trialsToRunString "Trials"
 
 
 incrementModelButton model =

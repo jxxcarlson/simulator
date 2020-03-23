@@ -7057,7 +7057,8 @@ var $author$project$Main$init = function (flags) {
 			runState: $author$project$Main$Paused,
 			state: A2($author$project$State$configure, config, 400),
 			tickRateString: $elm$core$String$fromFloat(config.tickLoopInterval),
-			trialsToRun: 5
+			trialsToRun: 5,
+			trialsToRunString: '5'
 		},
 		$author$project$Main$getRandomNumber);
 };
@@ -7338,8 +7339,8 @@ var $author$project$Main$subscriptions = function (model) {
 	return A2($elm$time$Time$every, model.state.config.tickLoopInterval, $author$project$Main$Tick);
 };
 var $author$project$Main$Batch = {$: 'Batch'};
+var $author$project$Main$BatchDone = {$: 'BatchDone'};
 var $author$project$Main$End = {$: 'End'};
-var $author$project$Main$EndBatch = {$: 'EndBatch'};
 var $author$project$Main$InTrial = function (a) {
 	return {$: 'InTrial', a: a};
 };
@@ -7438,29 +7439,46 @@ var $author$project$Main$updateTickRate = F2(
 			model,
 			{state: newState, tickRateString: str});
 	});
+var $author$project$Main$updateTrialsToRun = F2(
+	function (str, model) {
+		var _v0 = $elm$core$String$toInt(str);
+		if (_v0.$ === 'Nothing') {
+			return _Utils_update(
+				model,
+				{trialsToRunString: str});
+		} else {
+			var k = _v0.a;
+			return _Utils_update(
+				model,
+				{trialsToRun: k, trialsToRunString: str});
+		}
+	});
 var $author$project$Main$updateParameters = function (model) {
 	return A2(
-		$author$project$Main$updateRent,
+		$author$project$Main$updateTrialsToRun,
 		$elm$core$String$fromFloat(model.state.config.businessRent),
 		A2(
-			$author$project$Main$updateCCRatio,
-			$elm$core$String$fromFloat(model.state.config.maximumCCRatio),
+			$author$project$Main$updateRent,
+			$elm$core$String$fromFloat(model.state.config.businessRent),
 			A2(
-				$author$project$Main$updateTickRate,
-				$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+				$author$project$Main$updateCCRatio,
+				$elm$core$String$fromFloat(model.state.config.maximumCCRatio),
 				A2(
-					$author$project$Main$updateCycleLength,
-					$elm$core$String$fromInt(model.state.config.cycleLength),
-					model))));
+					$author$project$Main$updateTickRate,
+					$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+					A2(
+						$author$project$Main$updateCycleLength,
+						$elm$core$String$fromInt(model.state.config.cycleLength),
+						model)))));
 };
 var $author$project$Main$changeConfig = F2(
 	function (k, model) {
 		var seed = function () {
-			var _v1 = model.randomAtmosphericInt;
-			if (_v1.$ === 'Nothing') {
+			var _v0 = model.randomAtmosphericInt;
+			if (_v0.$ === 'Nothing') {
 				return 400;
 			} else {
-				var s = _v1.a;
+				var s = _v0.a;
 				return s;
 			}
 		}();
@@ -7469,7 +7487,6 @@ var $author$project$Main$changeConfig = F2(
 			$author$project$EngineData$config1,
 			A2($elm_community$list_extra$List$Extra$getAt, k, $author$project$EngineData$configurationList));
 		var newState = A2($author$project$State$configure, configuration, seed);
-		var _v0 = A2($elm$core$Debug$log, 'CCR', newState.config.maximumCCRatio);
 		return $author$project$Main$updateParameters(
 			_Utils_update(
 				model,
@@ -7480,15 +7497,6 @@ var $author$project$Main$changeConfig = F2(
 					state: newState
 				}));
 	});
-var $author$project$State$lostSales = function (log) {
-	return $elm$core$List$sum(
-		A2(
-			$elm$core$List$map,
-			function ($) {
-				return $.lostSales;
-			},
-			log));
-};
 var $elm$core$Basics$modBy = _Basics_modBy;
 var $author$project$Internal$Inventory$map2Item = F3(
 	function (f, _v0, _v1) {
@@ -8804,6 +8812,64 @@ var $author$project$Engine$nextState = F3(
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$String$trim = _String_trim;
+var $author$project$Main$updateBusinessLog = F4(
+	function (model, runMode_, counter_, log) {
+		var _v0 = _Utils_Tuple2(runMode_, counter_);
+		if ((_v0.a.$ === 'Batch') && (!_v0.b)) {
+			var _v1 = _v0.a;
+			return $author$project$State$newBusinessLog(model.state);
+		} else {
+			return log;
+		}
+	});
+var $author$project$State$lostSales = function (log) {
+	return $elm$core$List$sum(
+		A2(
+			$elm$core$List$map,
+			function ($) {
+				return $.lostSales;
+			},
+			log));
+};
+var $author$project$Main$updateData = F3(
+	function (model, runState, bjs) {
+		var _v0 = model.runMode;
+		if (_v0.$ === 'Single') {
+			if (runState.$ === 'End') {
+				return A2(
+					$elm$core$List$cons,
+					$author$project$State$lostSales(model.state.businessLog),
+					model.data);
+			} else {
+				return model.data;
+			}
+		} else {
+			var _v2 = _Utils_Tuple2(runState, bjs);
+			_v2$2:
+			while (true) {
+				if (_v2.a.$ === 'BatchDone') {
+					switch (_v2.b.$) {
+						case 'InTrial':
+							var _v3 = _v2.a;
+							var k = _v2.b.a;
+							return (_Utils_cmp(k, model.trialsToRun) < 0) ? A2(
+								$elm$core$List$cons,
+								$author$project$State$lostSales(model.state.businessLog),
+								model.data) : model.data;
+						case 'EndBatch':
+							var _v4 = _v2.a;
+							var _v5 = _v2.b;
+							return model.data;
+						default:
+							break _v2$2;
+					}
+				} else {
+					break _v2$2;
+				}
+			}
+			return model.data;
+		}
+	});
 var $author$project$Main$updateParametersInConfig = F2(
 	function (model, configuration) {
 		return A2(
@@ -8811,7 +8877,7 @@ var $author$project$Main$updateParametersInConfig = F2(
 			$elm$core$String$fromFloat(model.state.config.businessRent),
 			A2(
 				$author$project$Main$updateCCRatioInConfig,
-				$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
+				$elm$core$String$fromFloat(model.state.config.maximumCCRatio),
 				A2(
 					$author$project$Main$updateTickRateInConfig,
 					$elm$core$String$fromFloat(model.state.config.tickLoopInterval),
@@ -8820,6 +8886,44 @@ var $author$project$Main$updateParametersInConfig = F2(
 						$elm$core$String$fromInt(model.state.config.cycleLength),
 						configuration))));
 	});
+var $author$project$Main$EndBatch = {$: 'EndBatch'};
+var $author$project$Main$updateRunParameters = function (model) {
+	var _v0 = model.runMode;
+	if (_v0.$ === 'Single') {
+		var _v1 = _Utils_cmp(model.counter, model.state.config.cycleLength) < 0;
+		if (_v1) {
+			return _Utils_Tuple3(model.counter + 1, $author$project$Main$Running, $author$project$Main$NoBatch);
+		} else {
+			return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$NoBatch);
+		}
+	} else {
+		var n = model.trialsToRun - 1;
+		var _v2 = model.batchJobState;
+		if (_v2.$ === 'InTrial') {
+			var k = _v2.a;
+			var _v3 = _Utils_Tuple2(
+				_Utils_cmp(model.counter, model.state.config.cycleLength) < 0,
+				_Utils_cmp(k, n + 1) < 1);
+			if (_v3.a) {
+				return _Utils_Tuple3(
+					model.counter + 1,
+					$author$project$Main$Running,
+					$author$project$Main$InTrial(k));
+			} else {
+				if (_v3.b) {
+					return _Utils_Tuple3(
+						0,
+						$author$project$Main$BatchDone,
+						$author$project$Main$InTrial(k + 1));
+				} else {
+					return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
+				}
+			}
+		} else {
+			return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
+		}
+	}
+};
 var $Janiczek$cmd_extra$Cmd$Extra$withCmd = F2(
 	function (cmd, model) {
 		return _Utils_Tuple2(model, cmd);
@@ -8838,53 +8942,10 @@ var $author$project$Main$update = F2(
 			case 'Tick':
 				var _v1 = model.runState;
 				if (_v1.$ === 'Running') {
-					var updateBusinessLog = F3(
-						function (runMode_, counter_, log) {
-							var _v10 = _Utils_Tuple2(runMode_, counter_);
-							if ((_v10.a.$ === 'Batch') && (!_v10.b)) {
-								var _v11 = _v10.a;
-								return $author$project$State$newBusinessLog(model.state);
-							} else {
-								return log;
-							}
-						});
-					var _v2 = function () {
-						var _v3 = model.runMode;
-						if (_v3.$ === 'Single') {
-							var _v4 = _Utils_cmp(model.counter, model.state.config.cycleLength) < 0;
-							if (_v4) {
-								return _Utils_Tuple3(model.counter + 1, $author$project$Main$Running, $author$project$Main$NoBatch);
-							} else {
-								return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$NoBatch);
-							}
-						} else {
-							var n = model.trialsToRun - 1;
-							var _v5 = model.batchJobState;
-							if (_v5.$ === 'InTrial') {
-								var k = _v5.a;
-								var _v6 = _Utils_Tuple2(
-									_Utils_cmp(model.counter, model.state.config.cycleLength) < 0,
-									_Utils_cmp(k, n) < 0);
-								if (_v6.a) {
-									return _Utils_Tuple3(
-										model.counter + 1,
-										$author$project$Main$Running,
-										$author$project$Main$InTrial(k));
-								} else {
-									if (_v6.b) {
-										return _Utils_Tuple3(
-											0,
-											$author$project$Main$Running,
-											$author$project$Main$InTrial(k + 1));
-									} else {
-										return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
-									}
-								}
-							} else {
-								return _Utils_Tuple3(0, $author$project$Main$End, $author$project$Main$EndBatch);
-							}
-						}
-					}();
+					var _v2 = A2(
+						$elm$core$Debug$log,
+						'(co,  rs, bjs)',
+						$author$project$Main$updateRunParameters(model));
 					var counter = _v2.a;
 					var runState = _v2.b;
 					var batchJobState_ = _v2.c;
@@ -8896,49 +8957,37 @@ var $author$project$Main$update = F2(
 							return _Utils_update(
 								st,
 								{
-									businessLog: A3(updateBusinessLog, model.runMode, counter, st.businessLog)
+									businessLog: A4($author$project$Main$updateBusinessLog, model, model.runMode, counter, st.businessLog)
 								});
 						}(model.state));
-					var updateData = F3(
-						function (runState_, state, data_) {
-							var _v7 = model.runMode;
-							if (_v7.$ === 'Single') {
-								if (runState.$ === 'End') {
-									return A2(
-										$elm$core$List$cons,
-										$author$project$State$lostSales(state.businessLog),
-										data_);
-								} else {
-									return data_;
-								}
+					var newData = A3($author$project$Main$updateData, model, runState, batchJobState_);
+					var runState2 = A2(
+						$elm$core$Debug$log,
+						'runState2',
+						function () {
+							var _v3 = model.runMode;
+							if (_v3.$ === 'Single') {
+								return runState;
 							} else {
-								if (!counter) {
-									return A2(
-										$elm$core$List$cons,
-										$author$project$State$lostSales(state.businessLog),
-										data_);
+								if (batchJobState_.$ === 'InTrial') {
+									var k = batchJobState_.a;
+									return (_Utils_eq(runState, $author$project$Main$BatchDone) && (_Utils_cmp(k, model.trialsToRun - 1) > 0)) ? $author$project$Main$End : $author$project$Main$Running;
 								} else {
-									return data_;
+									return $author$project$Main$End;
 								}
 							}
-						});
+						}());
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
-							{
-								batchJobState: batchJobState_,
-								counter: counter,
-								data: A3(updateData, runState, model.state, model.data),
-								runState: runState,
-								state: newState
-							}),
+							{batchJobState: batchJobState_, counter: counter, data: newData, runState: runState2, state: newState}),
 						$elm$core$Platform$Cmd$none);
 				} else {
 					return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 				}
 			case 'CycleRun':
-				var _v12 = model.runState;
-				switch (_v12.$) {
+				var _v5 = model.runState;
+				switch (_v5.$) {
 					case 'Paused':
 						return _Utils_Tuple2(
 							_Utils_update(
@@ -8951,17 +9000,23 @@ var $author$project$Main$update = F2(
 								model,
 								{runState: $author$project$Main$Paused}),
 							$elm$core$Platform$Cmd$none);
+					case 'BatchDone':
+						return _Utils_Tuple2(
+							_Utils_update(
+								model,
+								{runState: $author$project$Main$Running}),
+							$elm$core$Platform$Cmd$none);
 					default:
 						return A2(
 							$Janiczek$cmd_extra$Cmd$Extra$withCmd,
 							$author$project$Main$getRandomNumber,
 							_Utils_update(
 								model,
-								{counter: 0, data: _List_Nil, runState: $author$project$Main$Running}));
+								{counter: 0, runState: $author$project$Main$Running}));
 				}
 			case 'CycleRunMode':
-				var _v13 = model.runMode;
-				if (_v13.$ === 'Single') {
+				var _v6 = model.runMode;
+				if (_v6.$ === 'Single') {
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						_Utils_update(
 							model,
@@ -8979,28 +9034,31 @@ var $author$project$Main$update = F2(
 				var config = model.configuration;
 				return _Utils_Tuple2(
 					A2(
-						$author$project$Main$updateTickRate,
-						model.tickRateString,
+						$author$project$Main$updateTrialsToRun,
+						model.trialsToRunString,
 						A2(
-							$author$project$Main$updateRent,
-							model.rentString,
+							$author$project$Main$updateTickRate,
+							model.tickRateString,
 							A2(
-								$author$project$Main$updateCycleLength,
-								model.cycleLengthString,
+								$author$project$Main$updateRent,
+								model.rentString,
 								A2(
-									$author$project$Main$updateCCRatio,
-									model.ccRatioString,
-									_Utils_update(
-										model,
-										{
-											counter: 0,
-											data: _List_Nil,
-											runState: $author$project$Main$Paused,
-											state: A2(
-												$author$project$State$configure,
-												config,
-												A2($elm$core$Maybe$withDefault, 400, model.randomAtmosphericInt))
-										}))))),
+									$author$project$Main$updateCycleLength,
+									model.cycleLengthString,
+									A2(
+										$author$project$Main$updateCCRatio,
+										model.ccRatioString,
+										_Utils_update(
+											model,
+											{
+												counter: 0,
+												data: _List_Nil,
+												runState: $author$project$Main$Paused,
+												state: A2(
+													$author$project$State$configure,
+													config,
+													A2($elm$core$Maybe$withDefault, 400, model.randomAtmosphericInt))
+											})))))),
 					$author$project$Main$getRandomNumber);
 			case 'AcceptFilter':
 				var str = msg.a;
@@ -9025,17 +9083,21 @@ var $author$project$Main$update = F2(
 				var str = msg.a;
 				return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 					A2($author$project$Main$updateRent, str, model));
+			case 'AcceptTrialsString':
+				var str = msg.a;
+				return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
+					A2($author$project$Main$updateTrialsToRun, str, model));
 			case 'AcceptConfiguration':
 				var str = msg.a;
-				var _v14 = $elm$core$String$toInt(str);
-				if (_v14.$ === 'Nothing') {
+				var _v7 = $elm$core$String$toInt(str);
+				if (_v7.$ === 'Nothing') {
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
 							{configurationString: str}),
 						$elm$core$Platform$Cmd$none);
 				} else {
-					var k = _v14.a;
+					var k = _v7.a;
 					var index = k - 1;
 					return $Janiczek$cmd_extra$Cmd$Extra$withNoCmd(
 						A2($author$project$Main$changeConfig, index, model));
@@ -9058,12 +9120,12 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var str = result.a;
-					var _v16 = $elm$core$String$toInt(
+					var _v9 = $elm$core$String$toInt(
 						$elm$core$String$trim(str));
-					if (_v16.$ === 'Nothing') {
+					if (_v9.$ === 'Nothing') {
 						return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 					} else {
-						var rn = _v16.a;
+						var rn = _v9.a;
 						var config = A2($author$project$Main$updateParametersInConfig, model, model.state.config);
 						var newState = A2(
 							$author$project$State$configure,
@@ -9074,7 +9136,12 @@ var $author$project$Main$update = F2(
 								model,
 								{
 									randomAtmosphericInt: $elm$core$Maybe$Just(rn),
-									state: A2($author$project$State$configure, config, rn)
+									state: function (state) {
+										return _Utils_update(
+											state,
+											{data: _List_Nil});
+									}(
+										A2($author$project$State$configure, config, rn))
 								}));
 					}
 				} else {
@@ -15918,6 +15985,12 @@ var $author$project$Main$AcceptTickRate = function (a) {
 var $author$project$Main$tickRateInput = function (model) {
 	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptTickRate, model.tickRateString, 'Rate');
 };
+var $author$project$Main$AcceptTrialsString = function (a) {
+	return {$: 'AcceptTrialsString', a: a};
+};
+var $author$project$Main$trialsToRunInput = function (model) {
+	return A3($author$project$Main$dashboardInput, $author$project$Main$AcceptTrialsString, model.trialsToRunString, 'Trials');
+};
 var $author$project$Main$controlPanel = function (model) {
 	return A2(
 		$mdgriffith$elm_ui$Element$column,
@@ -15936,6 +16009,7 @@ var $author$project$Main$controlPanel = function (model) {
 					]),
 				$mdgriffith$elm_ui$Element$text('')),
 				$author$project$Main$cycleLengthInput(model),
+				$author$project$Main$trialsToRunInput(model),
 				$author$project$Main$tickRateInput(model),
 				$author$project$Main$ccRatioInput(model),
 				$author$project$Main$rentInput(model)
@@ -16178,7 +16252,7 @@ var $author$project$Main$displayLostSales = function (model) {
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width(
-							$mdgriffith$elm_ui$Element$px(20))
+							$mdgriffith$elm_ui$Element$px(25))
 						]),
 					$mdgriffith$elm_ui$Element$text(bl.name + ':')),
 					A2(
@@ -16186,7 +16260,7 @@ var $author$project$Main$displayLostSales = function (model) {
 					_List_fromArray(
 						[
 							$mdgriffith$elm_ui$Element$width(
-							$mdgriffith$elm_ui$Element$px(20))
+							$mdgriffith$elm_ui$Element$px(25))
 						]),
 					$mdgriffith$elm_ui$Element$text(
 						$elm$core$String$fromInt(bl.lostSales)))
@@ -16423,6 +16497,7 @@ var $author$project$Report$minMaxHouseholdInventoryOf = F2(
 					$elm$core$List$maximum(inventories)
 				]));
 	});
+var $elm$core$Debug$toString = _Debug_toString;
 var $author$project$Main$totalLostSales = function (model) {
 	var data = model.state.businessLog;
 	var total = $elm$core$List$sum(
@@ -16540,12 +16615,17 @@ var $author$project$Main$dashboard = function (model) {
 				A2(
 				$mdgriffith$elm_ui$Element$el,
 				_List_Nil,
+				$mdgriffith$elm_ui$Element$text(
+					'CC Ratio = ' + $elm$core$String$fromFloat(model.state.config.maximumCCRatio))),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
 				$mdgriffith$elm_ui$Element$text('------------------------------')),
 				A2(
 				$mdgriffith$elm_ui$Element$row,
 				_List_fromArray(
 					[
-						$mdgriffith$elm_ui$Element$spacing(4)
+						$mdgriffith$elm_ui$Element$spacing(8)
 					]),
 				_Utils_ap(
 					$author$project$Main$displayLostSales(model),
@@ -16553,7 +16633,12 @@ var $author$project$Main$dashboard = function (model) {
 						[
 							$author$project$Main$totalLostSales(model)
 						]))),
-				$author$project$Main$displayStatistics(model)
+				$author$project$Main$displayStatistics(model),
+				A2(
+				$mdgriffith$elm_ui$Element$el,
+				_List_Nil,
+				$mdgriffith$elm_ui$Element$text(
+					$elm$core$Debug$toString(model.data)))
 			]));
 };
 var $author$project$Main$booleanOr = function (list) {
@@ -17213,6 +17298,8 @@ var $author$project$Main$runButton = function (model) {
 		switch (_v0.$) {
 			case 'Running':
 				return 'Pause';
+			case 'BatchDone':
+				return 'Pause';
 			case 'Paused':
 				return 'Run';
 			default:
@@ -17695,6 +17782,7 @@ var $jxxcarlson$elm_graph$SimpleGraph$barChart = F2(
 				]));
 	});
 var $author$project$Style$endColor = A3($mdgriffith$elm_ui$Element$rgb255, 255, 200, 200);
+var $author$project$Style$lightBlue = A3($mdgriffith$elm_ui$Element$rgb255, 90, 90, 255);
 var $author$project$Style$pausedColor = A3($mdgriffith$elm_ui$Element$rgb255, 255, 255, 200);
 var $author$project$Main$bgColor = function (model) {
 	var _v0 = model.runState;
@@ -17703,8 +17791,10 @@ var $author$project$Main$bgColor = function (model) {
 			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$endColor);
 		case 'Paused':
 			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$pausedColor);
-		default:
+		case 'Running':
 			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$lightColor);
+		default:
+			return $mdgriffith$elm_ui$Element$Background$color($author$project$Style$lightBlue);
 	}
 };
 var $jxxcarlson$elm_graph$SimpleGraph$Color = function (a) {
