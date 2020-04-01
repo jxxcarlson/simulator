@@ -3,7 +3,7 @@ module Action exposing
     , businessPaysRent
     , consumeA
     , dailyActivity
-    , householdBuysGoods
+    , houseHoldsBuyGoods
     , payHouseholds
     , readEducationalContent
     , recordData
@@ -88,6 +88,14 @@ initializeSupplier state =
     state
 
 
+{-| If CCEarningsOFF: no change
+
+If CCEarningsON:
+Each business earns config.educationPaymentPerCycle of CC (e.g, 20)
+on day 3 of the cycle, where the length of the cycle
+is config.educationalContentCycle (e.g, 30)
+
+-}
 readEducationalContent : State -> State
 readEducationalContent state =
     case state.config.ccEarnings of
@@ -139,21 +147,161 @@ probability =
 -- Entity.inventoryAmount "AA" e
 
 
+{-|
+
+    1. Select random Business
+    2.
+
+-}
 businessBuysGoods : State -> State
 businessBuysGoods state =
-    case randomBusiness state of
-        ( Nothing, _ ) ->
-            state
+    let
+        ( p, newSeed ) =
+            Random.step probability state.seed
+    in
+    if p > state.config.probabilityOfPurchasePerStep then
+        { state | seed = newSeed }
 
-        ( Just business, seed ) ->
-            if Entity.inventoryAmount "AA" business < state.config.maxInventory then
-                buy_ state seed business
+    else
+        case randomBusiness { state | seed = newSeed } of
+            ( Nothing, _ ) ->
+                { state | seed = newSeed }
 
-            else
-                { state | seed = seed }
+            ( Just business, newSeed2 ) ->
+                if Entity.inventoryAmount "AA" business < state.config.maxInventory then
+                    buy_3 state newSeed2 business
+
+                else
+                    { state | seed = newSeed2 }
 
 
-buy_ state seed business =
+buy_2 state seed business =
+    let
+        ( purchaseAmt, seed2 ) =
+            randomPurchaseAmount state seed
+
+        _ =
+            Debug.log "t, biz" ( state.tick, Entity.getName business )
+
+        fiatBalance =
+            max 0 (Entity.getFiatAccountFloatValue state.tick business)
+
+        ccBalance =
+            max 0 (Entity.getCCAccountFloatValue state.tick business)
+
+        purchaseCost =
+            toFloat purchaseAmt * state.config.itemCost
+
+        fiatPurchase =
+            min fiatBalance purchaseCost |> max 0 |> floor |> toFloat |> Debug.log "fiatPurchase"
+
+        ccPurchase =
+            min ccBalance (purchaseCost - fiatPurchase) |> max 0 |> Debug.log "ccPurchase"
+
+        totalPurchase =
+            fiatPurchase + ccPurchase
+
+        fiatPurchaseAmt : Int
+        fiatPurchaseAmt =
+            floor (fiatPurchase / state.config.itemCost)
+
+        ccPurchaseAmt : Int
+        ccPurchaseAmt =
+            floor (ccPurchase / state.config.itemCost)
+
+        totalPurchaseAmt =
+            fiatPurchaseAmt + ccPurchaseAmt
+
+        item =
+            ModelTypes.setQuantity totalPurchaseAmt state.config.itemA
+
+        newBusiness =
+            let
+                config =
+                    state.config
+            in
+            -- add purchased item to store inventory, then subtract
+            -- cost of items purchased from fiat and CC acconts
+            Entity.addToInventory item business
+                |> AH.creditEntity config state.tick config.fiatCurrency Infinite -fiatPurchase
+                |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration -ccPurchase
+
+        newBusinesses =
+            List.Extra.updateIf
+                (\b -> Entity.getName b == Entity.getName newBusiness)
+                (\b -> newBusiness)
+                state.businesses
+
+        logString =
+            getLogString purchaseAmt business newBusiness
+    in
+    { state | seed = seed2, businesses = newBusinesses, log = logItem state logString }
+
+
+buy_3 state seed business =
+    let
+        ( purchaseAmt, seed2 ) =
+            randomPurchaseAmount state seed
+
+        fiatBalance =
+            Entity.getFiatAccountFloatValue state.tick business |> max 0
+
+        ccBalance =
+            Entity.getCCAccountFloatValue state.tick business |> max 0
+
+        purchaseCost =
+            toFloat purchaseAmt * state.config.itemCost
+
+        --fiatPurchaseCost =
+        --    min purchaseCost fiatBalance
+        --
+        --ccPurchaseCost =
+        --    min (purchaseCost - fiatPurchaseCost) ccBalance
+        ccPurchaseCost =
+            min purchaseCost ccBalance
+
+        fiatPurchaseCost =
+            min (purchaseCost - ccPurchaseCost) fiatBalance
+
+        ccPurchaseAmt =
+            ccPurchaseCost / state.config.itemCost |> floor
+
+        fiatPurchaseAmt =
+            fiatPurchaseCost / state.config.itemCost |> floor
+
+        _ =
+            Debug.log "(biz, bal, pur)" ( ( state.tick, Entity.getName business ), ( fiatBalance, ccBalance ), ( fiatPurchaseAmt, ccPurchaseAmt ) )
+
+        finalPurchaseAmt =
+            ccPurchaseAmt + fiatPurchaseAmt
+
+        item =
+            ModelTypes.setQuantity finalPurchaseAmt state.config.itemA
+
+        newBusiness =
+            let
+                config =
+                    state.config
+            in
+            -- add purchased item to store inventory, then subtract total cost of items purchased from supplier
+            -- cost is fiat cost + cc cost
+            Entity.addToInventory item business
+                |> AH.creditEntity config state.tick config.fiatCurrency Infinite -fiatPurchaseCost
+                |> AH.creditEntity config state.tick config.complementaryCurrency config.complementaryCurrencyExpiration -ccPurchaseCost
+
+        newBusinesses =
+            List.Extra.updateIf
+                (\b -> Entity.getName b == Entity.getName newBusiness)
+                (\b -> newBusiness)
+                state.businesses
+
+        logString =
+            getLogString finalPurchaseAmt business newBusiness
+    in
+    { state | seed = seed2, businesses = newBusinesses, log = logItem state logString }
+
+
+buy_1 state seed business =
     let
         ( purchaseAmt, seed2 ) =
             randomPurchaseAmount state seed
@@ -317,7 +465,19 @@ businessPaysRent t state =
 
 
 
--- MAIN: HOUSEHOLD BUY GOODS
+-- MAIN: HOUSEHOLDS BUY GOODS
+
+
+houseHoldsBuyGoods : Int -> State -> State
+houseHoldsBuyGoods t state =
+    let
+        ( n, newSeed ) =
+            Random.step (Random.int 0 6) state.seed
+
+        newState =
+            { state | seed = newSeed }
+    in
+    Utility.iterate n (householdBuysGoods t) newState
 
 
 {-| Choose a low-inventory household at random and buy goods
@@ -393,7 +553,15 @@ householdBuysGoods_ t household_ state =
                         state.businesses
 
                 part1 =
-                    "H" ++ Entity.getName newHousehold ++ " buy " ++ String.fromInt amountToPurchase ++ " from " ++ Entity.getName newBusiness |> String.padRight 17 ' '
+                    "H"
+                        ++ Entity.getName newHousehold
+                        ++ " inv "
+                        ++ (Entity.inventoryAmount "AA" household_ |> String.fromInt)
+                        ++ " buy "
+                        ++ String.fromInt amountToPurchase
+                        ++ " from "
+                        ++ Entity.getName newBusiness
+                        |> String.padRight 20 ' '
 
                 logString =
                     part1 ++ " | " ++ message

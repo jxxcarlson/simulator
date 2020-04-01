@@ -81,7 +81,7 @@ nextState config_ t state =
         |> Action.readEducationalContent
         |> Action.businessBuysGoods
         |> Action.payHouseholds config_ t
-        |> Utility.iterate 2 (Action.householdBuysGoods t)
+        |> Action.houseHoldsBuyGoods t
         |> Action.businessPaysRent t
         |> Action.consumeA t
         |> Action.recordData t

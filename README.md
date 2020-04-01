@@ -52,3 +52,4 @@ See the documentation for module `Currency` for more information, e,g,,
 how credit or debit an account.
 
 **Note:** This is work in progress.
+

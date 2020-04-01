@@ -74,12 +74,14 @@ type alias Config =
     , minimumPurchaseOfA : Int
     , maximumPurchaseOfA : Int
     , maxInventory : Int
+    , probabilityOfPurchasePerStep : Float
     , educationalContentCycle : Int
     , educationPaymentPerCycle : Float
     , maximumCCRatio : Float
     , probabilityOfPurchasing : Float
     , monthlyPurchaseCeilingInUnits : Int
     , monthlyPurchaseCeilingHeadRoom : Int
+    , businessFiatStartingBalance : Float
     , businessRent : Float
     , rentDueDate : Int
 
@@ -134,6 +136,7 @@ config0 =
     , itemAMoney = Money.createInfinite fiatCurrency 0 2.0
     , randomPurchaseFraction = 0.1
     , maxInventory = 20
+    , probabilityOfPurchasePerStep = 0.5
     , minimumBusinessInventoryOfA = 5
     , minimumPurchaseOfA = 2
     , maximumPurchaseOfA = 15
@@ -142,7 +145,8 @@ config0 =
     , probabilityOfPurchasing = 0.6
     , monthlyPurchaseCeilingInUnits = 70
     , monthlyPurchaseCeilingHeadRoom = 10
-    , businessRent = 140
+    , businessFiatStartingBalance = 10
+    , businessRent = 40
     , rentDueDate = 10
 
     -- Educators
@@ -165,7 +169,7 @@ config1 =
     { title = "Fiat currency only"
     , subtitle = "Simplistic random re-order model"
     , tickLoopInterval = 3 * 10
-    , cycleLength = 60
+    , cycleLength = 360
     , renderWidth = 573
     , gridWidth = 30
     , ccEarnings = CCEarningsOFF
@@ -175,7 +179,7 @@ config1 =
     , fiatCurrencyName = "Real"
     , complementaryCurrency = cambiatus
     , complementaryCurrencyExpiration = Finite (Money.bankTime 360)
-    , educationPaymentPerCycle = 20.0
+    , educationPaymentPerCycle = 40.0
 
     -- Businesses
     , contentReleaseInterval = 15
@@ -187,6 +191,7 @@ config1 =
     , itemAMoney = Money.createInfinite fiatCurrency 0 2.0
     , randomPurchaseFraction = 0.1
     , maxInventory = 40
+    , probabilityOfPurchasePerStep = 1.0
     , minimumBusinessInventoryOfA = 5
     , minimumPurchaseOfA = 4
     , maximumPurchaseOfA = 16 -- 30
@@ -195,7 +200,8 @@ config1 =
     , probabilityOfPurchasing = 0.6
     , monthlyPurchaseCeilingInUnits = 80 -- 140
     , monthlyPurchaseCeilingHeadRoom = 0
-    , businessRent = 140
+    , businessFiatStartingBalance = 10
+    , businessRent = 40
     , rentDueDate = 10
 
     -- Educators
@@ -268,8 +274,8 @@ business1 config =
     Entity
         { name = "A"
         , entityType = TShop
-        , complementaryAccount = Account.empty cambiatus
-        , fiatAccount = Account.empty fiatCurrency
+        , complementaryAccount = Account.createWithCurrency cambiatus [ Money.createInfinite cambiatus 0 10 ]
+        , fiatAccount = Account.createWithCurrency fiatCurrency [ Money.createInfinite fiatCurrency 0 config.businessFiatStartingBalance ] -- Account.empty fiatCurrency
         , inventory = [ ModelTypes.setQuantity 20 config.itemA ]
         , position = Position 8 (config.gridWidth - 5)
         , color = Color.rgba 0.4 0.4 1.0 0.8

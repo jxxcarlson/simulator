@@ -200,10 +200,6 @@ update msg model =
 
                         refreshData : RunState -> State -> State
                         refreshData bjs state =
-                            let
-                                _ =
-                                    Debug.log "BJS" bjs
-                            in
                             if bjs == BatchDone then
                                 { state | data = [] }
 
@@ -212,10 +208,6 @@ update msg model =
 
                         refreshLog : RunState -> State -> State
                         refreshLog bjs state =
-                            let
-                                _ =
-                                    Debug.log "BJS" bjs
-                            in
                             if bjs == BatchDone then
                                 { state | log = [] }
 
@@ -688,6 +680,7 @@ displayLostSaleData : Model -> String
 displayLostSaleData model =
     model.data
         |> List.take 7
+        |> List.reverse
         |> List.map String.fromInt
         |> String.join ", "
 
